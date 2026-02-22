@@ -1,7 +1,7 @@
 {
   "host": "0.0.0.0",
   "port": 8787,
-  "token": "CHANGE_ME",
+  "token": "K7#mP9$xL2@vQ8&jR4*tY6uF3eW1iO5pA0sD2gH9nJqZcB7kM4rT8vN6xL3wE1yU5iO9pA2sD7gH4nJqZcB0kM8rT5vN1xL6wE3yU9iO2pA4sD7gH1nJqZcB5kM3rT8vN0xL2wE6yU4iO9pA7sD1gH5nJqZcB8kM2rT9vN3xL0wE5yU1iO6pA4sD8gH2nJqZcB7kM9rT0vN4xL1wE3yU8iO5pA2sD6gH0nJqZcB4kM8rT3vN7xL9wE2yU6iO1pA5sD9gH4nJqZcB3kM0rT2vN8xL5wE7yU4iO9p",
   "workspaceDir": "C:\\path\\to\\streamdeck_remote",
   "rateLimit": {
     "windowMs": 3000,

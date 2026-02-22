@@ -219,6 +219,11 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     const logs = await requestJson(baseUrl, token, "/api/logs/recent?lines=25");
     assert.equal(logs.status, 200);
     assert.ok(Array.isArray(logs.body?.lines));
+
+    const api404 = await requestJson(baseUrl, token, "/api/does-not-exist");
+    assert.equal(api404.status, 404);
+    assert.equal(api404.body?.ok, false);
+    assert.equal(api404.body?.error, "api route not found");
   } finally {
     await stopProcess(child);
     fs.rmSync(tmpDir, { recursive: true, force: true });

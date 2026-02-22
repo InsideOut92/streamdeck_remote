@@ -1875,6 +1875,10 @@ app.post("/api/run", requireToken, rateLimit, (req, res) => {
   }
 });
 
+app.use("/api", (req, res) => {
+  return res.status(404).json({ ok: false, error: "api route not found" });
+});
+
 app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   if (err && (err.type === "entity.parse.failed" || err instanceof SyntaxError)) {

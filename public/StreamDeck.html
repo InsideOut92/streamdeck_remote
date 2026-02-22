@@ -1222,6 +1222,7 @@
         btn.className = "tile";
         btn.type = "button";
         btn.dataset.id = tile.id;
+        btn.setAttribute("aria-label", tile.subtitle ? `${tile.label}, ${tile.subtitle}` : tile.label);
 
         btn.appendChild(tileIconNode(tile));
 
@@ -1259,6 +1260,7 @@
           node.className = "tile";
           node.type = "button";
           node.dataset.id = tile.id;
+          node.setAttribute("aria-label", tile.subtitle ? `${tile.label}, ${tile.subtitle}` : tile.label);
           node.appendChild(tileIconNode(tile));
 
           const m = document.createElement("div");
@@ -1404,6 +1406,11 @@
       };
 
       el.tileClose.onclick = () => el.dlgTile.close();
+    }
+
+    function openTileMenuById(tileId) {
+      const tile = state.tiles.find((x) => x.id === tileId);
+      if (tile) openTileMenu(tile);
     }
 
     function fillProfileSelect(selectEl, selectedId) {
@@ -1795,8 +1802,7 @@
       state.longPressTileId = btn.dataset.id;
       state.longPressTimer = setTimeout(() => {
         state.longPressTimer = null;
-        const tile = state.tiles.find((x) => x.id === state.longPressTileId);
-        if (tile) openTileMenu(tile);
+        openTileMenuById(state.longPressTileId);
       }, 450);
     });
 
@@ -1817,6 +1823,24 @@
       const btn = event.target.closest("button.tile[data-id]");
       if (!btn || el.dlgTile.open) return;
       runTile(btn.dataset.id);
+    });
+
+    document.addEventListener("contextmenu", (event) => {
+      const btn = event.target.closest("button.tile[data-id]");
+      if (!btn) return;
+      event.preventDefault();
+      openTileMenuById(btn.dataset.id);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const btn = target.closest("button.tile[data-id]");
+      if (!btn) return;
+      const isContextKey = event.key === "ContextMenu" || (event.shiftKey && event.key === "F10");
+      if (!isContextKey) return;
+      event.preventDefault();
+      openTileMenuById(btn.dataset.id);
     });
 
     el.btnAdd.addEventListener("click", () => {
