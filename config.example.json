@@ -1,0 +1,23 @@
+{
+  "host": "0.0.0.0",
+  "port": 8787,
+  "token": "CHANGE_ME",
+  "workspaceDir": "C:\\path\\to\\streamdeck_remote",
+  "rateLimit": {
+    "windowMs": 3000,
+    "max": 20
+  },
+  "wow": {
+    "processName": "WowClassic.exe",
+    "folders": {
+      "addons": "C:\\Program Files (x86)\\World of Warcraft\\_classic_\\Interface\\AddOns",
+      "logs": "C:\\Program Files (x86)\\World of Warcraft\\_classic_\\Logs",
+      "wtf": "C:\\Program Files (x86)\\World of Warcraft\\_classic_\\WTF"
+    }
+  },
+  "logging": {
+    "enabled": true,
+    "dir": "",
+    "maxFiles": 14
+  }
+}

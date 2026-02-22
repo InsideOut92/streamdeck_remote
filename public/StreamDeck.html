@@ -10,17 +10,20 @@
 
   <style>
     :root {
-      --bg0: #060a12;
-      --bg1: #101821;
-      --card: rgba(255, 255, 255, 0.06);
-      --line: rgba(255, 255, 255, 0.15);
-      --text: rgba(255, 255, 255, 0.94);
-      --muted: rgba(255, 255, 255, 0.66);
+      --bg0: #05101a;
+      --bg1: #0d1f2f;
+      --bg2: #133a54;
+      --card: rgba(9, 20, 33, 0.74);
+      --line: rgba(189, 220, 255, 0.23);
+      --lineStrong: rgba(189, 220, 255, 0.4);
+      --text: rgba(239, 249, 255, 0.98);
+      --muted: rgba(205, 227, 246, 0.78);
       --ok: #22c55e;
       --warn: #f59e0b;
       --err: #ef4444;
-      --radius: 16px;
-      --shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+      --accent: #5dd8ff;
+      --radius: 18px;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
     }
 
     * { box-sizing: border-box; }
@@ -29,11 +32,11 @@
     body {
       margin: 0;
       color: var(--text);
-      font-family: "Segoe UI", "Noto Sans", sans-serif;
+      font-family: "Segoe UI Variable", "Segoe UI", "Noto Sans", sans-serif;
       background:
-        radial-gradient(1000px 500px at 10% 5%, rgba(59,130,246,.22), transparent 60%),
-        radial-gradient(900px 500px at 92% 18%, rgba(14,165,233,.14), transparent 58%),
-        linear-gradient(180deg, var(--bg0), var(--bg1));
+        radial-gradient(1200px 620px at 8% 3%, rgba(59,130,246,.22), transparent 63%),
+        radial-gradient(1200px 650px at 90% 4%, rgba(14,165,233,.2), transparent 62%),
+        linear-gradient(170deg, var(--bg0), var(--bg1) 46%, var(--bg2));
     }
 
     .app {
@@ -44,56 +47,57 @@
     }
 
     .panel {
-      width: min(1200px, 100%);
+      width: min(1280px, 100%);
       border: 1px solid var(--line);
-      border-radius: calc(var(--radius) + 6px);
+      border-radius: calc(var(--radius) + 8px);
       background: var(--card);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
       box-shadow: var(--shadow);
       overflow: hidden;
     }
 
     header {
-      padding: 12px;
+      padding: 14px;
       display: grid;
-      gap: 10px;
+      gap: 12px;
       border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+      background: linear-gradient(180deg, rgba(146, 201, 255, 0.16), rgba(30, 54, 74, 0.28));
     }
 
-    .headRow {
+    .headTop {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 14px;
       flex-wrap: wrap;
     }
 
-    .title {
+    .brand {
       display: grid;
-      gap: 2px;
+      gap: 5px;
     }
 
-    .title strong { font-size: 17px; }
-    .title span { font-size: 12px; color: var(--muted); }
+    .brand strong { font-size: 18px; letter-spacing: .2px; }
+    .brand span { font-size: 12px; color: var(--muted); }
 
-    .chips {
+    .headActions {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
       flex-wrap: wrap;
     }
 
     .chip {
       border: 1px solid var(--line);
-      background: rgba(0, 0, 0, 0.24);
-      padding: 7px 10px;
+      background: rgba(2, 10, 17, 0.42);
+      padding: 9px 12px;
       border-radius: 999px;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      color: var(--muted);
+      color: rgba(228, 244, 255, 0.96);
       font-size: 12px;
+      min-height: 38px;
     }
 
     .dot {
@@ -109,21 +113,52 @@
 
     .btn {
       border: 1px solid var(--line);
-      border-radius: 11px;
-      background: rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      background: rgba(193, 226, 255, 0.1);
       color: var(--text);
-      padding: 9px 11px;
-      font-size: 12px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
+      min-height: 42px;
     }
 
-    .btn.primary { border-color: rgba(56, 189, 248, 0.5); }
+    .btn.primary {
+      border-color: rgba(93, 216, 255, 0.62);
+      background: linear-gradient(180deg, rgba(93, 216, 255, 0.28), rgba(93, 216, 255, 0.1));
+    }
     .btn.warn { border-color: rgba(245, 158, 11, 0.45); }
     .btn.danger { border-color: rgba(239, 68, 68, 0.5); }
 
     .toolbar {
       display: grid;
+      gap: 10px;
+    }
+
+    .topMenu {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+    }
+
+    .quickProgram {
+      border: 1px solid var(--line);
+      background: rgba(1, 9, 15, 0.4);
+      border-radius: 16px;
+      padding: 8px;
+      display: flex;
       gap: 8px;
+      align-items: center;
+    }
+
+    .quickProgram input {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      outline: 0;
+      padding: 8px;
+      font-size: 13px;
     }
 
     .tabs {
@@ -134,18 +169,20 @@
 
     .tab {
       border: 1px solid var(--line);
-      background: rgba(0, 0, 0, 0.25);
+      background: rgba(0, 0, 0, 0.33);
       color: var(--text);
       border-radius: 999px;
-      padding: 8px 11px;
-      font-size: 12px;
+      padding: 10px 13px;
+      font-size: 13px;
+      min-height: 42px;
       cursor: pointer;
       opacity: 0.88;
     }
 
     .tab[aria-selected="true"] {
       opacity: 1;
-      background: rgba(255, 255, 255, 0.14);
+      border-color: var(--lineStrong);
+      background: rgba(208, 233, 255, 0.2);
     }
 
     .searchRow {
@@ -160,11 +197,11 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      min-width: min(480px, 100%);
+      min-width: min(520px, 100%);
       border: 1px solid var(--line);
-      background: rgba(0, 0, 0, 0.24);
+      background: rgba(0, 0, 0, 0.34);
       border-radius: 999px;
-      padding: 8px 10px;
+      padding: 8px 11px;
     }
 
     .search input {
@@ -177,9 +214,9 @@
     }
 
     .content {
-      padding: 12px;
+      padding: 14px;
       display: grid;
-      gap: 12px;
+      gap: 14px;
     }
 
     .section {
@@ -201,27 +238,27 @@
     }
 
     .grid {
-      padding: 12px;
+      padding: 14px;
       display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     }
 
     .tile {
       border: 1px solid var(--line);
-      border-radius: 14px;
-      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(233, 245, 255, 0.18), rgba(177, 214, 246, 0.08));
       color: var(--text);
-      min-height: 90px;
-      padding: 12px;
+      min-height: 102px;
+      padding: 14px;
       display: grid;
       grid-template-columns: 44px 1fr;
-      gap: 10px;
+      gap: 11px;
       align-items: center;
       text-align: left;
       cursor: pointer;
       position: relative;
-      box-shadow: 0 8px 18px rgba(0,0,0,.23);
+      box-shadow: 0 10px 24px rgba(0,0,0,.26);
       transition: transform .1s ease, border-color .1s ease;
     }
 
@@ -373,9 +410,77 @@
       flex-wrap: wrap;
     }
 
+    .logMeta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .logView {
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.35);
+      max-height: 320px;
+      overflow: auto;
+      padding: 8px;
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    #rowProgramHints {
+      display: grid;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    #rowProgramHints > * {
+      min-width: 0;
+      flex: unset;
+    }
+
+    .suggestGrid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    }
+
+    .suggestBtn {
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.24);
+      border-radius: 10px;
+      color: var(--text);
+      text-align: left;
+      padding: 9px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .suggestBtn strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .suggestBtn span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     @media (max-width: 700px) {
+      .topMenu { grid-template-columns: 1fr; }
       .search { min-width: 100%; }
-      .tile { min-height: 84px; }
+      .tile { min-height: 92px; }
     }
   </style>
 </head>
@@ -383,38 +488,41 @@
   <div class="app">
     <div class="panel">
       <header>
-        <div class="headRow">
-          <div class="title">
+        <div class="headTop">
+          <div class="brand">
             <strong>StreamDeck Remote</strong>
-            <span>Profile + Unterseiten + zentrale Launcher-Konfiguration</span>
+            <span>Touch Launcher mit Profilen, Unterseiten und zentraler Programmlogik</span>
           </div>
 
-          <div class="chips">
+          <div class="headActions">
             <div class="chip" title="API Status">
               <span class="dot" id="dotApi"></span>
-              <span id="apiState">unknown</span>
+              <span id="apiState">offline</span>
             </div>
             <div class="chip" title="WoW Prozess">
               <span class="dot" id="dotWow"></span>
-              <span id="wowState">unknown</span>
+              <span id="wowState">stopped</span>
             </div>
 
-            <button class="btn primary" id="btnAdd" type="button">Tile hinzufuegen</button>
+            <button class="btn primary" id="btnAdd" type="button">+ Tile</button>
             <button class="btn" id="btnSettings" type="button">Einstellungen</button>
           </div>
         </div>
 
         <div class="toolbar">
-          <div class="tabs" id="profileTabs"></div>
-          <div class="tabs" id="pageTabs"></div>
-
-          <div class="searchRow">
+          <div class="topMenu">
             <div class="search">
               <span>Suche</span>
               <input id="q" type="search" placeholder="Filter: wow, logs, code..." autocomplete="off" />
               <button class="btn" id="clearQ" type="button">Clear</button>
             </div>
+            <div class="quickProgram">
+              <input id="quickProgramInput" type="search" placeholder="Programmname oder Pfad (z.B. obs, chrome, C:\\Tools\\app.exe)" autocomplete="off" />
+              <button class="btn primary" id="quickProgramAdd" type="button">Programm als Tile</button>
+            </div>
           </div>
+          <div class="tabs" id="profileTabs"></div>
+          <div class="tabs" id="pageTabs"></div>
         </div>
       </header>
 
@@ -436,16 +544,16 @@
   <div class="toast" id="toast" aria-live="polite"></div>
 
   <dialog id="dlgAdd">
-    <div class="dlgTitle">Tile hinzufuegen</div>
-    <div class="dlgHint">Custom Tiles werden serverseitig gespeichert und sind danach auf allen Clients verfuegbar.</div>
+    <div class="dlgTitle" id="addDialogTitle">Tile hinzufuegen</div>
+    <div class="dlgHint" id="addDialogHint">Programm/Link/Ordner auswaehlen, speichern, fertig. Die App validiert Pfade automatisch.</div>
 
     <div class="row">
       <select id="addType">
-        <option value="url">URL</option>
-        <option value="app">Programm</option>
+        <option value="app">Programm (empfohlen)</option>
+        <option value="url">Webseite (http/https)</option>
         <option value="folder">Ordner</option>
-        <option value="protocol">Protocol</option>
-        <option value="action">Action</option>
+        <option value="protocol">Protokoll-Link (z.B. discord://)</option>
+        <option value="action">Spezialaktion (advanced)</option>
       </select>
       <select id="addProfile"></select>
       <select id="addPage"></select>
@@ -459,6 +567,14 @@
     <div class="row" id="rowTarget">
       <input id="addTarget" placeholder="Ziel: URL oder Pfad" />
       <button class="btn" id="addBrowse" type="button">Browse</button>
+    </div>
+    <div class="row" id="rowProgramTools">
+      <button class="btn" id="addFindProgram" type="button">Programm automatisch finden</button>
+      <button class="btn" id="addTopPrograms" type="button">Installierte Apps anzeigen</button>
+    </div>
+    <div class="row" id="rowProgramHints" hidden>
+      <div class="hint">Treffer aus deinem System (Pfad geprueft)</div>
+      <div class="suggestGrid" id="addProgramHints"></div>
     </div>
 
     <div class="row" id="rowAction" hidden>
@@ -494,10 +610,11 @@
   </dialog>
   <dialog id="dlgTile">
     <div class="dlgTitle" id="tileMenuTitle">Tile</div>
-    <div class="dlgHint">Built-ins koennen ausgeblendet werden, Custom Tiles koennen geloescht werden.</div>
+    <div class="dlgHint">Built-ins koennen ausgeblendet werden, Custom Tiles koennen bearbeitet oder geloescht werden.</div>
 
     <div class="row">
       <button class="btn" id="tileFav" type="button">Favorit</button>
+      <button class="btn" id="tileEdit" type="button">Bearbeiten</button>
       <button class="btn warn" id="tileHide" type="button">Ausblenden</button>
       <button class="btn danger" id="tileDelete" type="button">Loeschen</button>
     </div>
@@ -514,6 +631,7 @@
     <div class="row">
       <input id="tokenInput" placeholder="Token" />
       <button class="btn primary" id="saveToken" type="button">Token speichern</button>
+      <button class="btn" id="testToken" type="button">Token testen</button>
       <button class="btn" id="refreshAll" type="button">Neu laden</button>
     </div>
 
@@ -535,6 +653,33 @@
       <div id="hiddenBox"></div>
     </div>
 
+    <div class="setGroup">
+      <div class="dlgTitle" style="font-size: 14px;">Server Logs</div>
+      <div class="setButtons">
+        <button class="btn" id="logsRefresh" type="button">Logs laden</button>
+        <button class="btn" id="logsCopy" type="button">Logs kopieren</button>
+      </div>
+      <div class="row">
+        <select id="logLines">
+          <option value="100">100 Zeilen</option>
+          <option value="200" selected>200 Zeilen</option>
+          <option value="500">500 Zeilen</option>
+          <option value="1000">1000 Zeilen</option>
+        </select>
+        <select id="logEnabled">
+          <option value="true">Datei-Logging: aktiv</option>
+          <option value="false">Datei-Logging: aus</option>
+        </select>
+        <input id="logMaxFiles" type="number" min="3" max="90" step="1" placeholder="max Dateien (3-90)" />
+      </div>
+      <div class="row">
+        <input id="logDir" placeholder="Log-Ordner (optional, leer = Standard)" />
+        <button class="btn primary" id="logSave" type="button">Logging speichern</button>
+      </div>
+      <div class="logMeta" id="logMeta">Logs nicht geladen.</div>
+      <pre class="logView" id="logView"></pre>
+    </div>
+
     <div class="rowActions">
       <button class="btn" id="settingsClose" type="button">Schliessen</button>
     </div>
@@ -542,9 +687,13 @@
 
   <script>
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .then((reg) => reg.update().catch(() => {}))
+        .catch(() => {});
     }
 
+    const CLIENT_BUILD = "2026-02-22.4";
     const LS = {
       token: "sd_token",
       profile: "sd_profile",
@@ -554,19 +703,43 @@
       hidden: "sd_hidden"
     };
 
+    function loadStoredArray(key, maxItems = 100) {
+      try {
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+          .filter((x) => typeof x === "string")
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .slice(0, maxItems);
+      } catch {
+        return [];
+      }
+    }
+
     const state = {
       token: localStorage.getItem(LS.token) || "",
       profile: localStorage.getItem(LS.profile) || "",
       page: localStorage.getItem(LS.page) || "",
-      favorites: new Set(JSON.parse(localStorage.getItem(LS.fav) || "[]")),
-      recent: JSON.parse(localStorage.getItem(LS.recent) || "[]"),
-      hidden: new Set(JSON.parse(localStorage.getItem(LS.hidden) || "[]")),
+      favorites: new Set(loadStoredArray(LS.fav, 200)),
+      recent: loadStoredArray(LS.recent, 50),
+      hidden: new Set(loadStoredArray(LS.hidden, 200)),
       profiles: [],
       tiles: [],
       wowRunning: null,
       longPressTimer: null,
       longPressTileId: "",
-      toastTimer: null
+      toastTimer: null,
+      pollTimer: null,
+      bootstrapTick: 0,
+      addProgramSearchTimer: null,
+      editingTileId: "",
+      editingTileIconData: "",
+      serverVersion: "",
+      serverBuild: "",
+      serverFeatures: {},
+      legacyServerHintShown: false
     };
 
     const el = {
@@ -587,10 +760,14 @@
 
       btnAdd: document.getElementById("btnAdd"),
       btnSettings: document.getElementById("btnSettings"),
+      quickProgramInput: document.getElementById("quickProgramInput"),
+      quickProgramAdd: document.getElementById("quickProgramAdd"),
 
       toast: document.getElementById("toast"),
 
       dlgAdd: document.getElementById("dlgAdd"),
+      addDialogTitle: document.getElementById("addDialogTitle"),
+      addDialogHint: document.getElementById("addDialogHint"),
       addType: document.getElementById("addType"),
       addProfile: document.getElementById("addProfile"),
       addPage: document.getElementById("addPage"),
@@ -599,6 +776,11 @@
       addTarget: document.getElementById("addTarget"),
       addBrowse: document.getElementById("addBrowse"),
       rowTarget: document.getElementById("rowTarget"),
+      rowProgramTools: document.getElementById("rowProgramTools"),
+      addFindProgram: document.getElementById("addFindProgram"),
+      addTopPrograms: document.getElementById("addTopPrograms"),
+      rowProgramHints: document.getElementById("rowProgramHints"),
+      addProgramHints: document.getElementById("addProgramHints"),
       rowAction: document.getElementById("rowAction"),
       addAction: document.getElementById("addAction"),
       rowArgs: document.getElementById("rowArgs"),
@@ -613,6 +795,7 @@
       dlgTile: document.getElementById("dlgTile"),
       tileMenuTitle: document.getElementById("tileMenuTitle"),
       tileFav: document.getElementById("tileFav"),
+      tileEdit: document.getElementById("tileEdit"),
       tileHide: document.getElementById("tileHide"),
       tileDelete: document.getElementById("tileDelete"),
       tileClose: document.getElementById("tileClose"),
@@ -620,11 +803,21 @@
       dlgSettings: document.getElementById("dlgSettings"),
       tokenInput: document.getElementById("tokenInput"),
       saveToken: document.getElementById("saveToken"),
+      testToken: document.getElementById("testToken"),
       refreshAll: document.getElementById("refreshAll"),
       autoDetectAll: document.getElementById("autoDetectAll"),
       launchersBox: document.getElementById("launchersBox"),
       wowBox: document.getElementById("wowBox"),
       hiddenBox: document.getElementById("hiddenBox"),
+      logsRefresh: document.getElementById("logsRefresh"),
+      logsCopy: document.getElementById("logsCopy"),
+      logLines: document.getElementById("logLines"),
+      logEnabled: document.getElementById("logEnabled"),
+      logMaxFiles: document.getElementById("logMaxFiles"),
+      logDir: document.getElementById("logDir"),
+      logSave: document.getElementById("logSave"),
+      logMeta: document.getElementById("logMeta"),
+      logView: document.getElementById("logView"),
       settingsClose: document.getElementById("settingsClose")
     };
 
@@ -641,6 +834,12 @@
       }, 2200);
     }
 
+    function showLegacyServerHint(missingEndpoint) {
+      if (state.legacyServerHintShown) return;
+      state.legacyServerHintShown = true;
+      showToast(`Server-Update noetig: ${missingEndpoint} fehlt. Bitte laufenden StreamDeck-Server neu starten.`);
+    }
+
     function setApiState(text, statusClass) {
       el.apiState.textContent = text;
       el.dotApi.className = `dot ${statusClass || ""}`.trim();
@@ -654,17 +853,20 @@
     async function api(path, opts = {}) {
       if (!state.token) throw new Error("Token fehlt");
       const method = opts.method || "GET";
+      const headers = { "X-Token": state.token };
+      if (opts.body) headers["Content-Type"] = "application/json";
       const response = await fetch(path, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          "X-Token": state.token
-        },
+        headers,
         body: opts.body ? JSON.stringify(opts.body) : undefined
       });
 
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error((data && data.error) ? data.error : `HTTP ${response.status}`);
+      const reqId = response.headers.get("x-request-id") || "";
+      if (!response.ok) {
+        const base = (data && data.error) ? data.error : `HTTP ${response.status}`;
+        throw new Error(reqId ? `${base} (req ${reqId})` : base);
+      }
       return data;
     }
 
@@ -681,7 +883,264 @@
     function parseArgs(text) {
       const raw = String(text || "").trim();
       if (!raw) return [];
-      return raw.split(/\s+/).filter(Boolean);
+      const out = [];
+      const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+      let m = null;
+      while ((m = re.exec(raw)) !== null) {
+        out.push(m[1] || m[2] || m[3] || "");
+      }
+      return out.filter(Boolean);
+    }
+
+    function formatArgs(args) {
+      const list = Array.isArray(args) ? args : [];
+      return list.map((x) => (/\s/.test(String(x)) ? `"${String(x)}"` : String(x))).join(" ").trim();
+    }
+
+    function escapeCssValue(value) {
+      const raw = String(value || "");
+      if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(raw);
+      return raw.replace(/["\\]/g, "\\$&");
+    }
+
+    function preferredProfileId() {
+      if (state.profile && state.profile !== "fav") return state.profile;
+      return state.profiles.find((p) => p.id !== "fav")?.id || state.profiles[0]?.id || "work";
+    }
+
+    function preferredPageId(profileId) {
+      const pages = pagesForProfile(profileId);
+      if (state.page && pages.some((p) => p.id === state.page)) return state.page;
+      return pages[0]?.id || "main";
+    }
+
+    function inferProgramLabel(rawPath) {
+      const value = String(rawPath || "").trim();
+      if (!value) return "";
+      const base = value.split(/[\\/]/).pop() || value;
+      return base.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").trim();
+    }
+
+    function unquoteInput(value) {
+      const text = String(value || "").trim();
+      if ((text.startsWith("\"") && text.endsWith("\"")) || (text.startsWith("'") && text.endsWith("'"))) {
+        return text.slice(1, -1).trim();
+      }
+      return text;
+    }
+
+    function looksLikePathInput(value) {
+      const text = unquoteInput(value);
+      return /^[a-z]:[\\/]/i.test(text) || text.includes("\\") || text.includes("/") || text.startsWith(".\\");
+    }
+
+    function splitAppTargetInput(rawInput) {
+      const raw = String(rawInput || "").trim();
+      if (!raw) return { target: "", inlineArgs: [] };
+
+      const pathWithArgs = raw.match(/^(.+\.(?:exe|lnk|bat|cmd|com))(?:\s+(.+))?$/i);
+      if (pathWithArgs) {
+        return {
+          target: unquoteInput(pathWithArgs[1]),
+          inlineArgs: parseArgs(pathWithArgs[2] || "")
+        };
+      }
+
+      const tokens = parseArgs(raw);
+      if (tokens.length > 1 && looksLikePathInput(tokens[0])) {
+        return {
+          target: unquoteInput(tokens[0]),
+          inlineArgs: tokens.slice(1)
+        };
+      }
+
+      return { target: unquoteInput(raw), inlineArgs: [] };
+    }
+
+    function isHttp404Error(error) {
+      return /HTTP 404/i.test(String(error?.message || error || ""));
+    }
+
+    async function fetchPrograms(query = "", limit = 16) {
+      const q = encodeURIComponent(String(query || "").trim());
+      const l = Math.max(1, Math.min(50, Number(limit) || 16));
+      const data = await api(`/api/programs?q=${q}&limit=${l}`);
+      return Array.isArray(data.programs) ? data.programs : [];
+    }
+
+    async function resolveProgramInput(input, options = {}) {
+      const allowDirectPathFallback = Boolean(options.allowDirectPathFallback);
+      try {
+        const data = await api("/api/programs/resolve", { method: "POST", body: { input } });
+        if (!data || !data.path) throw new Error("Programm nicht gefunden");
+        return String(data.path);
+      } catch (error) {
+        if (allowDirectPathFallback && looksLikePathInput(input)) {
+          return unquoteInput(input);
+        }
+        if (isHttp404Error(error)) {
+          showLegacyServerHint("/api/programs/resolve");
+          throw new Error("Programmsuche-Endpunkt fehlt auf dem laufenden Server. Bitte Server neu starten.");
+        }
+        throw error;
+      }
+    }
+
+    async function fetchTileDetails(id) {
+      if (!id) throw new Error("Tile-ID fehlt");
+      if (!state.serverFeatures || state.serverFeatures.tileDetails !== true) {
+        showLegacyServerHint("/api/tiles/:id");
+        throw new Error("Tile-Details-Endpunkt fehlt auf dem laufenden Server. Bitte Server neu starten.");
+      }
+      try {
+        const data = await api(`/api/tiles/${encodeURIComponent(id)}`);
+        if (!data || !data.tile) throw new Error("Tile konnte nicht geladen werden");
+        return data.tile;
+      } catch (error) {
+        if (isHttp404Error(error)) {
+          showLegacyServerHint("/api/tiles/:id");
+          throw new Error("Tile-Details-Endpunkt fehlt auf dem laufenden Server. Bitte Server neu starten.");
+        }
+        throw error;
+      }
+    }
+
+    function useProgramSuggestion(program) {
+      if (!program || !program.path) return;
+      el.addTarget.value = program.path;
+      if (!el.addLabel.value.trim()) el.addLabel.value = program.label || inferProgramLabel(program.path);
+      if (!el.addSubtitle.value.trim()) {
+        const sourceLabel = program.source ? `Auto: ${program.source}` : "Auto gefunden";
+        el.addSubtitle.value = sourceLabel;
+      }
+      if (el.addIconMode.value === "emoji") {
+        el.addIconMode.value = "auto";
+        updateAddFormVisibility();
+      }
+      showToast(`Programm gewaehlt: ${program.label || inferProgramLabel(program.path)}`);
+    }
+
+    function renderProgramSuggestions(programs = []) {
+      el.addProgramHints.textContent = "";
+      if (!Array.isArray(programs) || !programs.length) {
+        el.rowProgramHints.hidden = true;
+        return;
+      }
+      el.rowProgramHints.hidden = false;
+      for (const program of programs) {
+        const btn = document.createElement("button");
+        btn.className = "suggestBtn";
+        btn.type = "button";
+        const title = document.createElement("strong");
+        title.textContent = program.label || inferProgramLabel(program.path);
+        const sub = document.createElement("span");
+        sub.textContent = program.path || "";
+        btn.appendChild(title);
+        btn.appendChild(sub);
+        btn.addEventListener("click", () => useProgramSuggestion(program));
+        el.addProgramHints.appendChild(btn);
+      }
+    }
+
+    async function quickAddProgram(input) {
+      if (!state.token) throw new Error("Bitte zuerst Token setzen");
+      const query = String(input || "").trim();
+      if (!query) throw new Error("Bitte Programmname oder Pfad eingeben");
+      const splitInput = splitAppTargetInput(query);
+      const targetInput = splitInput.target || query;
+
+      let resolvedPath = "";
+      try {
+        resolvedPath = await resolveProgramInput(targetInput, { allowDirectPathFallback: true });
+      } catch (error) {
+        if (looksLikePathInput(targetInput)) {
+          resolvedPath = unquoteInput(targetInput);
+        } else {
+          throw error;
+        }
+      }
+      const profile = preferredProfileId();
+      const page = preferredPageId(profile);
+      const label = inferProgramLabel(resolvedPath);
+
+      const tile = {
+        profile,
+        page,
+        type: "app",
+        label: label || "Programm",
+        subtitle: "Auto hinzugefuegt",
+        target: resolvedPath,
+        iconMode: "auto"
+      };
+      if (splitInput.inlineArgs.length) tile.args = splitInput.inlineArgs;
+
+      await api("/api/tiles/upsert", { method: "POST", body: { tile } });
+      await loadBootstrap();
+      showToast(`Programm-Tile erstellt: ${tile.label}`);
+    }
+
+    function renderSettingsNeedToken() {
+      const msg = "Token fehlt. Bitte Token speichern, dann werden Einstellungen und Logs geladen.";
+      el.launchersBox.textContent = "";
+      el.wowBox.textContent = "";
+      el.hiddenBox.textContent = "";
+
+      const node1 = document.createElement("div");
+      node1.className = "setLabel";
+      node1.textContent = msg;
+      const node2 = document.createElement("div");
+      node2.className = "setLabel";
+      node2.textContent = msg;
+      const node3 = document.createElement("div");
+      node3.className = "setLabel";
+      node3.textContent = msg;
+      el.launchersBox.appendChild(node1);
+      el.wowBox.appendChild(node2);
+      el.hiddenBox.appendChild(node3);
+
+      el.logMeta.textContent = msg;
+      el.logView.textContent = "";
+      el.logEnabled.value = "true";
+      el.logMaxFiles.value = "14";
+      el.logDir.value = "";
+      el.logsRefresh.disabled = true;
+      el.logsCopy.disabled = true;
+      el.logSave.disabled = true;
+      el.logEnabled.disabled = true;
+      el.logMaxFiles.disabled = true;
+      el.logDir.disabled = true;
+      el.logLines.disabled = true;
+    }
+
+    function setLoggingUi(logging) {
+      const enabled = logging?.enabled !== false;
+      el.logEnabled.value = enabled ? "true" : "false";
+      el.logMaxFiles.value = String(logging?.maxFiles || 14);
+      el.logDir.value = String(logging?.dir || "");
+      el.logsRefresh.disabled = false;
+      el.logsCopy.disabled = false;
+      el.logSave.disabled = false;
+      el.logEnabled.disabled = false;
+      el.logMaxFiles.disabled = false;
+      el.logDir.disabled = false;
+      el.logLines.disabled = false;
+    }
+
+    async function loadRecentLogs() {
+      const lines = Math.max(10, Math.min(2000, Number(el.logLines.value) || 200));
+      let data = null;
+      try {
+        data = await api(`/api/logs/recent?lines=${lines}`);
+      } catch (error) {
+        if (isHttp404Error(error)) {
+          showLegacyServerHint("/api/logs/recent");
+          throw new Error("Log-Endpunkt fehlt auf dem laufenden Server. Bitte Server neu starten.");
+        }
+        throw error;
+      }
+      const logLines = Array.isArray(data.lines) ? data.lines : [];
+      el.logView.textContent = logLines.join("\n");
+      el.logMeta.textContent = `Zeilen: ${logLines.length} | Ordner: ${data.logDir || "-"} | Logging: ${data.loggingEnabled ? "aktiv" : "aus"}`;
     }
 
     function tileIconNode(tile) {
@@ -822,6 +1281,9 @@
       state.profiles = Array.isArray(data.profiles) ? data.profiles : [];
       state.tiles = Array.isArray(data.tiles) ? data.tiles : [];
       state.wowRunning = Boolean(data.wowRunning);
+      state.serverVersion = String(data.serverVersion || state.serverVersion || "");
+      state.serverBuild = String(data.serverBuild || state.serverBuild || "");
+      state.serverFeatures = data.features && typeof data.features === "object" ? data.features : state.serverFeatures;
 
       if (!state.profile || !profileById(state.profile)) {
         state.profile = state.profiles[0]?.id || "work";
@@ -839,8 +1301,18 @@
 
     async function pollStatus() {
       try {
-        await api("/api/health");
-        setApiState("online", "ok");
+        const health = await api("/api/health");
+        state.serverVersion = String(health?.version || state.serverVersion || "");
+        state.serverBuild = String(health?.build || state.serverBuild || "");
+        state.serverFeatures = health?.features && typeof health.features === "object"
+          ? health.features
+          : state.serverFeatures;
+
+        const suffix = state.serverVersion ? ` v${state.serverVersion}` : "";
+        setApiState(`online${suffix}`, "ok");
+        if (!health?.features || health.features.logsRecent !== true || health.features.programResolve !== true) {
+          showLegacyServerHint("neue API-Features");
+        }
       } catch (error) {
         setApiState(state.token ? "offline" : "token?", state.token ? "err" : "");
       }
@@ -864,7 +1336,7 @@
       const tile = state.tiles.find((x) => x.id === id);
       if (!tile) return;
 
-      const target = document.querySelector(`button.tile[data-id="${CSS.escape(id)}"]`);
+      const target = document.querySelector(`button.tile[data-id="${escapeCssValue(id)}"]`);
       if (target) target.disabled = true;
 
       try {
@@ -884,9 +1356,10 @@
     function openTileMenu(tile) {
       el.tileMenuTitle.textContent = tile.label;
       el.tileFav.textContent = state.favorites.has(tile.id) ? "Favorit entfernen" : "Als Favorit";
+      el.tileEdit.style.display = tile.builtin ? "none" : "";
       el.tileDelete.style.display = tile.builtin ? "none" : "";
       el.tileHide.style.display = "";
-      el.dlgTile.showModal();
+      if (!el.dlgTile.open) el.dlgTile.showModal();
 
       el.tileFav.onclick = () => {
         if (state.favorites.has(tile.id)) state.favorites.delete(tile.id);
@@ -901,6 +1374,16 @@
         saveSet(LS.hidden, state.hidden);
         renderTiles();
         el.dlgTile.close();
+      };
+
+      el.tileEdit.onclick = async () => {
+        if (tile.builtin) return;
+        el.dlgTile.close();
+        try {
+          await openAddDialog(tile);
+        } catch (error) {
+          showToast(`Bearbeiten fehlgeschlagen: ${error.message || String(error)}`);
+        }
       };
 
       el.tileDelete.onclick = async () => {
@@ -956,6 +1439,14 @@
       el.rowAction.hidden = type !== "action";
       el.rowTarget.hidden = type === "action";
       el.rowArgs.hidden = type !== "app";
+      el.rowProgramTools.hidden = type !== "app";
+      if (type !== "app") el.rowProgramHints.hidden = true;
+
+      if (type === "app") el.addTarget.placeholder = "Programmname oder Pfad (z.B. obs, chrome, C:\\Apps\\tool.exe)";
+      else if (type === "url") el.addTarget.placeholder = "https://...";
+      else if (type === "folder") el.addTarget.placeholder = "Ordnerpfad";
+      else if (type === "protocol") el.addTarget.placeholder = "protocol://...";
+      else el.addTarget.placeholder = "Ziel";
 
       const iconMode = el.addIconMode.value;
       el.addIconEmoji.style.display = iconMode === "emoji" ? "" : "none";
@@ -968,6 +1459,9 @@
 
     async function readImageDataUrl(file) {
       if (!file) return "";
+      if (file.size > 2 * 1024 * 1024) {
+        throw new Error("Bild zu gross (max 2 MB)");
+      }
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result || ""));
@@ -976,11 +1470,24 @@
       });
     }
 
-    function openAddDialog() {
-      fillProfileSelect(el.addProfile, state.profile === "fav" ? "work" : state.profile);
-      fillPageSelect(el.addProfile.value || "work", el.addPage, state.page || "main");
+    function setAddDialogMode(editing) {
+      if (editing) {
+        el.addDialogTitle.textContent = "Tile bearbeiten";
+        el.addDialogHint.textContent = "Du aktualisierst ein bestehendes Custom Tile. Built-in Tiles bleiben unveraendert.";
+        el.addSave.textContent = "Aenderungen speichern";
+      } else {
+        el.addDialogTitle.textContent = "Tile hinzufuegen";
+        el.addDialogHint.textContent = "Programm/Link/Ordner auswaehlen, speichern, fertig. Die App validiert Pfade automatisch.";
+        el.addSave.textContent = "Speichern";
+      }
+    }
 
-      el.addType.value = "url";
+    function resetAddDialogForm(profileId, pageId) {
+      const profile = profileId || preferredProfileId();
+      fillProfileSelect(el.addProfile, profile);
+      fillPageSelect(el.addProfile.value || profile, el.addPage, pageId || state.page || "main");
+
+      el.addType.value = "app";
       el.addLabel.value = "";
       el.addSubtitle.value = "";
       el.addTarget.value = "";
@@ -990,11 +1497,54 @@
       el.addIconMode.value = "auto";
       el.addIconEmoji.value = "";
       el.addIconFile.value = "";
+      el.addProgramHints.textContent = "";
+      el.rowProgramHints.hidden = true;
+      state.editingTileId = "";
+      state.editingTileIconData = "";
+      setAddDialogMode(false);
+    }
+
+    async function openAddDialog(editTile = null) {
+      const profile = preferredProfileId();
+      resetAddDialogForm(profile, state.page || "main");
+
+      if (editTile && editTile.id) {
+        const details = await fetchTileDetails(editTile.id);
+        if (details.builtin) throw new Error("Built-in Tiles koennen nicht bearbeitet werden");
+
+        state.editingTileId = details.id;
+        state.editingTileIconData = details.iconMode === "image" ? String(details.iconData || "") : "";
+        setAddDialogMode(true);
+
+        fillProfileSelect(el.addProfile, details.profile || profile);
+        fillPageSelect(el.addProfile.value || details.profile || profile, el.addPage, details.page || "main");
+
+        el.addType.value = details.type || "app";
+        el.addLabel.value = details.label || "";
+        el.addSubtitle.value = details.subtitle || "";
+        el.addTarget.value = details.target || "";
+        el.addAction.value = details.action || "terminal";
+        el.addArgs.value = formatArgs(details.args || []);
+        el.addStartIn.value = details.startIn || "";
+        el.addIconMode.value = details.iconMode || "emoji";
+        el.addIconEmoji.value = details.iconMode === "emoji" ? (details.icon || "") : "";
+      }
+
       updateAddFormVisibility();
       el.dlgAdd.showModal();
+
+      try {
+        const suggested = await fetchPrograms(el.addType.value === "app" ? el.addTarget.value : "", 10);
+        renderProgramSuggestions(suggested);
+      } catch {
+        el.rowProgramHints.hidden = true;
+      }
     }
-    async function openSettingsDialog() {
-      el.tokenInput.value = state.token;
+    async function refreshSettingsContent() {
+      if (!state.token) {
+        renderSettingsNeedToken();
+        return;
+      }
 
       try {
         const settings = await api("/api/settings");
@@ -1028,6 +1578,8 @@
                 input.value = r.path;
                 await api("/api/settings/launcher", { method: "POST", body: { id: launcher.id, path: r.path } });
                 showToast(`${launcher.label} gesetzt`);
+              } else if (r.unavailable) {
+                showToast(r.reason || "Datei-Dialog nicht verfuegbar. Pfad manuell eintragen.");
               }
             } catch (error) {
               showToast(`Browse Fehler: ${error.message || String(error)}`);
@@ -1041,7 +1593,7 @@
           btnAuto.onclick = async () => {
             try {
               await api("/api/settings/autodetect", { method: "POST", body: { launcherId: launcher.id } });
-              await openSettingsDialog();
+              await refreshSettingsContent();
               showToast(`${launcher.label} automatisch geprueft`);
             } catch (error) {
               showToast(`Auto Fehler: ${error.message || String(error)}`);
@@ -1098,6 +1650,8 @@
                 input.value = r.path;
                 await api("/api/settings/wow-folder", { method: "POST", body: { key, path: r.path } });
                 showToast(`WoW ${key} gesetzt`);
+              } else if (r.unavailable) {
+                showToast(r.reason || "Ordner-Dialog nicht verfuegbar. Pfad manuell eintragen.");
               }
             } catch (error) {
               showToast(`Browse Fehler: ${error.message || String(error)}`);
@@ -1169,15 +1723,23 @@
             btn.className = "btn";
             btn.type = "button";
             btn.textContent = "Einblenden";
-            btn.onclick = () => {
+            btn.onclick = async () => {
               state.hidden.delete(id);
               saveSet(LS.hidden, state.hidden);
               renderTiles();
-              openSettingsDialog();
+              await refreshSettingsContent();
             };
             row.appendChild(btn);
             el.hiddenBox.appendChild(row);
           }
+        }
+
+        setLoggingUi(settings.logging || {});
+        try {
+          await loadRecentLogs();
+        } catch (error) {
+          el.logMeta.textContent = `Logs konnten nicht geladen werden: ${error.message || String(error)}`;
+          el.logView.textContent = "";
         }
       } catch (error) {
         el.launchersBox.textContent = "";
@@ -1185,9 +1747,15 @@
         msg.className = "setLabel";
         msg.textContent = `Konnte Einstellungen nicht laden: ${error.message || String(error)}`;
         el.launchersBox.appendChild(msg);
+        el.logMeta.textContent = `Konnte Logs nicht laden: ${error.message || String(error)}`;
+        el.logView.textContent = "";
       }
+    }
 
-      el.dlgSettings.showModal();
+    async function openSettingsDialog() {
+      el.tokenInput.value = state.token;
+      await refreshSettingsContent();
+      if (!el.dlgSettings.open) el.dlgSettings.showModal();
     }
 
     el.clearQ.addEventListener("click", () => {
@@ -1215,6 +1783,12 @@
       renderTiles();
     });
 
+    function clearLongPress() {
+      if (state.longPressTimer) clearTimeout(state.longPressTimer);
+      state.longPressTimer = null;
+      state.longPressTileId = "";
+    }
+
     document.addEventListener("pointerdown", (event) => {
       const btn = event.target.closest("button.tile[data-id]");
       if (!btn) return;
@@ -1226,10 +1800,10 @@
       }, 450);
     });
 
-    document.addEventListener("pointerup", () => {
-      if (state.longPressTimer) clearTimeout(state.longPressTimer);
-      state.longPressTimer = null;
-    });
+    document.addEventListener("pointerup", clearLongPress);
+    document.addEventListener("pointercancel", clearLongPress);
+    document.addEventListener("pointerleave", clearLongPress);
+    window.addEventListener("blur", clearLongPress);
 
     document.addEventListener("pointermove", (event) => {
       if (!state.longPressTimer) return;
@@ -1251,34 +1825,124 @@
         openSettingsDialog();
         return;
       }
-      openAddDialog();
+      openAddDialog().catch((error) => {
+        showToast(`Dialog konnte nicht geoeffnet werden: ${error.message || String(error)}`);
+      });
+    });
+
+    el.quickProgramAdd.addEventListener("click", async () => {
+      try {
+        await quickAddProgram(el.quickProgramInput.value);
+        el.quickProgramInput.value = "";
+      } catch (error) {
+        showToast(`Quick-Add fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.quickProgramInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        el.quickProgramAdd.click();
+      }
     });
 
     el.addProfile.addEventListener("change", () => {
       fillPageSelect(el.addProfile.value, el.addPage);
     });
-    el.addType.addEventListener("change", updateAddFormVisibility);
+    el.addType.addEventListener("change", async () => {
+      updateAddFormVisibility();
+      if (el.addType.value === "app") {
+        try {
+          const programs = await fetchPrograms(el.addTarget.value, 10);
+          renderProgramSuggestions(programs);
+        } catch {
+          renderProgramSuggestions([]);
+        }
+      }
+    });
     el.addIconMode.addEventListener("change", updateAddFormVisibility);
 
     el.addBrowse.addEventListener("click", async () => {
       const kind = el.addBrowse.dataset.kind || "file";
       try {
         const result = await api("/api/settings/browse", { method: "POST", body: { kind } });
-        if (result.path) el.addTarget.value = result.path;
+        if (result.path) {
+          el.addTarget.value = result.path;
+          if (el.addType.value === "app") {
+            if (!el.addLabel.value.trim()) el.addLabel.value = inferProgramLabel(result.path);
+            renderProgramSuggestions([{ label: inferProgramLabel(result.path), path: result.path, source: "browse" }]);
+          }
+        } else if (result.unavailable) {
+          showToast(result.reason || "Datei-/Ordner-Dialog nicht verfuegbar. Ziel bitte manuell eingeben.");
+        }
       } catch (error) {
         showToast(`Browse Fehler: ${error.message || String(error)}`);
       }
     });
 
-    el.addCancel.addEventListener("click", () => el.dlgAdd.close());
+    el.addTarget.addEventListener("input", () => {
+      if (el.addType.value !== "app") return;
+      if (state.addProgramSearchTimer) clearTimeout(state.addProgramSearchTimer);
+      state.addProgramSearchTimer = setTimeout(async () => {
+        try {
+          const programs = await fetchPrograms(el.addTarget.value, 8);
+          renderProgramSuggestions(programs);
+        } catch {
+          renderProgramSuggestions([]);
+        }
+      }, 220);
+    });
+
+    el.addFindProgram.addEventListener("click", async () => {
+      try {
+        const query = String(el.addTarget.value || "").trim() || String(el.addLabel.value || "").trim();
+        if (!query) throw new Error("Bitte Programmname oder Pfad eingeben");
+        const splitInput = splitAppTargetInput(query);
+        const targetInput = splitInput.target || query;
+        const resolved = await resolveProgramInput(targetInput, { allowDirectPathFallback: true });
+        el.addTarget.value = resolved;
+        if (splitInput.inlineArgs.length) {
+          const mergedArgs = [...splitInput.inlineArgs, ...parseArgs(el.addArgs.value)];
+          el.addArgs.value = formatArgs(mergedArgs);
+        }
+        if (!el.addLabel.value.trim()) el.addLabel.value = inferProgramLabel(resolved);
+        const programs = await fetchPrograms(query, 8);
+        renderProgramSuggestions(programs);
+        showToast(`Programm gefunden: ${resolved}`);
+      } catch (error) {
+        showToast(`Suche fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.addTopPrograms.addEventListener("click", async () => {
+      try {
+        const programs = await fetchPrograms("", 16);
+        renderProgramSuggestions(programs);
+      } catch (error) {
+        showToast(`Programmliste konnte nicht geladen werden: ${error.message || String(error)}`);
+      }
+    });
+
+    el.addCancel.addEventListener("click", () => {
+      state.editingTileId = "";
+      state.editingTileIconData = "";
+      el.dlgAdd.close();
+    });
+    el.dlgAdd.addEventListener("close", () => {
+      state.editingTileId = "";
+      state.editingTileIconData = "";
+      setAddDialogMode(false);
+    });
 
     el.addSave.addEventListener("click", async () => {
       try {
         const type = el.addType.value;
         const profile = el.addProfile.value;
         const page = el.addPage.value;
-        const label = String(el.addLabel.value || "").trim();
+        const rawTarget = String(el.addTarget.value || "").trim();
+        let label = String(el.addLabel.value || "").trim();
         const subtitle = String(el.addSubtitle.value || "").trim();
+        if (type === "app" && !label) label = inferProgramLabel(rawTarget);
         if (!profile || !page || !label) throw new Error("Profil, Seite und Titel sind Pflicht");
 
         const tile = {
@@ -1291,17 +1955,19 @@
           icon: "",
           iconData: ""
         };
+        if (state.editingTileId) tile.id = state.editingTileId;
 
         if (tile.iconMode === "emoji") tile.icon = String(el.addIconEmoji.value || "").trim();
         if (tile.iconMode === "image") {
-          tile.iconData = await readImageDataUrl(el.addIconFile.files && el.addIconFile.files[0]);
+          const uploadedIcon = await readImageDataUrl(el.addIconFile.files && el.addIconFile.files[0]);
+          tile.iconData = uploadedIcon || state.editingTileIconData || "";
           if (!tile.iconData) throw new Error("Bitte eine Bilddatei waehlen");
         }
 
         if (type === "action") {
           tile.action = el.addAction.value;
         } else {
-          tile.target = String(el.addTarget.value || "").trim();
+          tile.target = rawTarget;
           if (!tile.target) throw new Error("Ziel fehlt");
         }
 
@@ -1312,16 +1978,37 @@
           tile.target = check.toString();
         }
 
+        if (type === "protocol") {
+          if (!/^[a-z][a-z0-9+.-]*:[^\s]*$/i.test(tile.target)) {
+            throw new Error("Ungueltiges Protocol-Schema");
+          }
+        }
+
         if (type === "app") {
-          tile.args = parseArgs(el.addArgs.value);
+          const splitInput = splitAppTargetInput(tile.target);
+          tile.target = splitInput.target || tile.target;
+          try {
+            tile.target = await resolveProgramInput(tile.target, { allowDirectPathFallback: true });
+          } catch (error) {
+            if (looksLikePathInput(tile.target)) {
+              tile.target = unquoteInput(tile.target);
+              showToast("Hinweis: Programm konnte nicht auto-aufgeloest werden. Pfad wird direkt gespeichert.");
+            } else {
+              throw error;
+            }
+          }
+          tile.args = [...splitInput.inlineArgs, ...parseArgs(el.addArgs.value)];
           const startIn = String(el.addStartIn.value || "").trim();
           if (startIn) tile.startIn = startIn;
         }
 
         await api("/api/tiles/upsert", { method: "POST", body: { tile } });
         el.dlgAdd.close();
+        const wasEditing = Boolean(state.editingTileId);
+        state.editingTileId = "";
+        state.editingTileIconData = "";
         await loadBootstrap();
-        showToast("Tile gespeichert");
+        showToast(wasEditing ? "Tile aktualisiert" : "Tile gespeichert");
       } catch (error) {
         showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
       }
@@ -1342,6 +2029,20 @@
       }
     });
 
+    el.testToken.addEventListener("click", async () => {
+      state.token = String(el.tokenInput.value || "").trim();
+      if (!state.token) {
+        showToast("Token fehlt");
+        return;
+      }
+      try {
+        await api("/api/health");
+        showToast("Token ist gueltig");
+      } catch (error) {
+        showToast(`Token ungueltig: ${error.message || String(error)}`);
+      }
+    });
+
     el.refreshAll.addEventListener("click", async () => {
       try {
         await loadBootstrap();
@@ -1355,11 +2056,75 @@
     el.autoDetectAll.addEventListener("click", async () => {
       try {
         await api("/api/settings/autodetect", { method: "POST", body: {} });
-        await openSettingsDialog();
+        await refreshSettingsContent();
         showToast("Auto-Erkennung ausgefuehrt");
       } catch (error) {
         showToast(`Auto-Erkennung fehlgeschlagen: ${error.message || String(error)}`);
       }
+    });
+
+    el.logsRefresh.addEventListener("click", async () => {
+      try {
+        await loadRecentLogs();
+        showToast("Logs geladen");
+      } catch (error) {
+        showToast(`Logs laden fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.logLines.addEventListener("change", async () => {
+      if (!el.dlgSettings.open || !state.token) return;
+      try {
+        await loadRecentLogs();
+      } catch {
+        // ignore on quick line-count changes
+      }
+    });
+
+    el.logsCopy.addEventListener("click", async () => {
+      const text = String(el.logView.textContent || "").trim();
+      if (!text) {
+        showToast("Keine Logs zum Kopieren");
+        return;
+      }
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const tmp = document.createElement("textarea");
+          tmp.value = text;
+          document.body.appendChild(tmp);
+          tmp.select();
+          document.execCommand("copy");
+          tmp.remove();
+        }
+        showToast("Logs kopiert");
+      } catch (error) {
+        showToast(`Kopieren fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.logSave.addEventListener("click", async () => {
+      try {
+        await api("/api/settings/logging", {
+          method: "POST",
+          body: {
+            enabled: el.logEnabled.value === "true",
+            maxFiles: Number(el.logMaxFiles.value) || 14,
+            dir: String(el.logDir.value || "").trim()
+          }
+        });
+        await refreshSettingsContent();
+        showToast("Logging gespeichert");
+      } catch (error) {
+        showToast(`Logging speichern fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden || !state.token) return;
+      pollStatus().catch(() => setApiState("offline", "err"));
+      loadBootstrap().catch(() => setApiState("offline", "err"));
     });
 
     async function init() {
@@ -1379,10 +2144,19 @@
         setApiState("offline", "err");
       }
 
-      setInterval(async () => {
+      if (state.serverBuild) {
+        console.info(`StreamDeck UI ${CLIENT_BUILD} | Server ${state.serverVersion || "?"} (${state.serverBuild})`);
+      }
+
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      state.bootstrapTick = 0;
+      state.pollTimer = setInterval(async () => {
         try {
           await pollStatus();
-          await loadBootstrap();
+          if (state.bootstrapTick % 3 === 0) {
+            await loadBootstrap();
+          }
+          state.bootstrapTick += 1;
         } catch {
           setApiState("offline", "err");
         }

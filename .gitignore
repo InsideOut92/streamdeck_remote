@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# build artifacts
+dist/
+coverage/
+*.log
+logs/
+
+# local runtime configuration
+config.json
+config.json.bak
+
+# n8n-as-code AI helpers
+n8nac-skills
+n8nac-skills.cmd

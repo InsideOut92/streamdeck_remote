@@ -1,5 +1,5 @@
 // public/sw.js
-const CACHE = "streamdeck-v2";
+const CACHE = "streamdeck-v4";
 const ASSETS = [
   "/StreamDeck.html",
   "/manifest.webmanifest",
