@@ -1,0 +1,1395 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StreamDeck Remote</title>
+
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#101821" />
+
+  <style>
+    :root {
+      --bg0: #060a12;
+      --bg1: #101821;
+      --card: rgba(255, 255, 255, 0.06);
+      --line: rgba(255, 255, 255, 0.15);
+      --text: rgba(255, 255, 255, 0.94);
+      --muted: rgba(255, 255, 255, 0.66);
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --radius: 16px;
+      --shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Segoe UI", "Noto Sans", sans-serif;
+      background:
+        radial-gradient(1000px 500px at 10% 5%, rgba(59,130,246,.22), transparent 60%),
+        radial-gradient(900px 500px at 92% 18%, rgba(14,165,233,.14), transparent 58%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
+
+    .app {
+      min-height: 100%;
+      padding: 14px;
+      display: grid;
+      place-items: start center;
+    }
+
+    .panel {
+      width: min(1200px, 100%);
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) + 6px);
+      background: var(--card);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    header {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+    }
+
+    .headRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .title strong { font-size: 17px; }
+    .title span { font-size: 12px; color: var(--muted); }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.24);
+      padding: 7px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+    .dot.err { background: var(--err); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+
+    .btn {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      padding: 9px 11px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .btn.primary { border-color: rgba(56, 189, 248, 0.5); }
+    .btn.warn { border-color: rgba(245, 158, 11, 0.45); }
+    .btn.danger { border-color: rgba(239, 68, 68, 0.5); }
+
+    .toolbar {
+      display: grid;
+      gap: 8px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 11px;
+      font-size: 12px;
+      cursor: pointer;
+      opacity: 0.88;
+    }
+
+    .tab[aria-selected="true"] {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .searchRow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: min(480px, 100%);
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.24);
+      border-radius: 999px;
+      padding: 8px 10px;
+    }
+
+    .search input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      color: var(--text);
+      background: transparent;
+      font-size: 13px;
+    }
+
+    .content {
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .section h2 {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .grid {
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    }
+
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.05));
+      color: var(--text);
+      min-height: 90px;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 10px;
+      align-items: center;
+      text-align: left;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 8px 18px rgba(0,0,0,.23);
+      transition: transform .1s ease, border-color .1s ease;
+    }
+
+    .tile:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.32); }
+    .tile:active { transform: scale(.99); }
+    .tile[disabled] { opacity: .58; cursor: not-allowed; }
+
+    .iconWrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      font-size: 21px;
+    }
+
+    .iconWrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .meta strong {
+      display: block;
+      font-size: 14px;
+    }
+
+    .meta span {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .fav {
+      position: absolute;
+      right: 9px;
+      top: 8px;
+      font-size: 11px;
+      opacity: .95;
+    }
+
+    .empty {
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      max-width: min(540px, calc(100vw - 24px));
+      background: rgba(0,0,0,.62);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .16s ease, transform .16s ease;
+      pointer-events: none;
+      word-break: break-word;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    dialog {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(11, 16, 26, 0.98);
+      color: var(--text);
+      width: min(760px, calc(100vw - 20px));
+      max-height: min(90vh, 860px);
+      overflow: auto;
+      padding: 12px;
+    }
+
+    dialog::backdrop { background: rgba(0,0,0,.58); }
+
+    .dlgTitle { font-weight: 600; margin-bottom: 4px; }
+    .dlgHint { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+
+    .row {
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 9px 0;
+    }
+
+    .row > * { flex: 1; min-width: 180px; }
+
+    .row input,
+    .row select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(0,0,0,.24);
+      color: var(--text);
+      padding: 10px;
+      outline: 0;
+      font-size: 13px;
+    }
+
+    .rowActions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .setGroup {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 10px;
+      background: rgba(0,0,0,.18);
+      display: grid;
+      gap: 8px;
+    }
+
+    .setRow {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      padding: 8px;
+      display: grid;
+      gap: 7px;
+      background: rgba(255,255,255,.03);
+    }
+
+    .setLabel {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .setButtons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 700px) {
+      .search { min-width: 100%; }
+      .tile { min-height: 84px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <header>
+        <div class="headRow">
+          <div class="title">
+            <strong>StreamDeck Remote</strong>
+            <span>Profile + Unterseiten + zentrale Launcher-Konfiguration</span>
+          </div>
+
+          <div class="chips">
+            <div class="chip" title="API Status">
+              <span class="dot" id="dotApi"></span>
+              <span id="apiState">unknown</span>
+            </div>
+            <div class="chip" title="WoW Prozess">
+              <span class="dot" id="dotWow"></span>
+              <span id="wowState">unknown</span>
+            </div>
+
+            <button class="btn primary" id="btnAdd" type="button">Tile hinzufuegen</button>
+            <button class="btn" id="btnSettings" type="button">Einstellungen</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="tabs" id="profileTabs"></div>
+          <div class="tabs" id="pageTabs"></div>
+
+          <div class="searchRow">
+            <div class="search">
+              <span>Suche</span>
+              <input id="q" type="search" placeholder="Filter: wow, logs, code..." autocomplete="off" />
+              <button class="btn" id="clearQ" type="button">Clear</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="section" id="recentSection" hidden>
+          <h2>Zuletzt benutzt <span style="font-size:12px; opacity:.75">Long-Press fuer Tile-Menue</span></h2>
+          <div class="grid" id="recentGrid"></div>
+        </section>
+
+        <section class="section">
+          <h2 id="sectionTitle">Tiles</h2>
+          <div class="grid" id="grid"></div>
+          <div class="empty" id="empty" hidden>Keine Tiles fuer diese Auswahl.</div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" aria-live="polite"></div>
+
+  <dialog id="dlgAdd">
+    <div class="dlgTitle">Tile hinzufuegen</div>
+    <div class="dlgHint">Custom Tiles werden serverseitig gespeichert und sind danach auf allen Clients verfuegbar.</div>
+
+    <div class="row">
+      <select id="addType">
+        <option value="url">URL</option>
+        <option value="app">Programm</option>
+        <option value="folder">Ordner</option>
+        <option value="protocol">Protocol</option>
+        <option value="action">Action</option>
+      </select>
+      <select id="addProfile"></select>
+      <select id="addPage"></select>
+    </div>
+
+    <div class="row">
+      <input id="addLabel" placeholder="Titel" maxlength="40" />
+      <input id="addSubtitle" placeholder="Untertitel (optional)" maxlength="80" />
+    </div>
+
+    <div class="row" id="rowTarget">
+      <input id="addTarget" placeholder="Ziel: URL oder Pfad" />
+      <button class="btn" id="addBrowse" type="button">Browse</button>
+    </div>
+
+    <div class="row" id="rowAction" hidden>
+      <select id="addAction">
+        <option value="terminal">terminal</option>
+        <option value="powershell">powershell</option>
+        <option value="browser">browser</option>
+        <option value="discord">discord</option>
+        <option value="wowStart">wowStart</option>
+        <option value="openWorkspace">openWorkspace</option>
+      </select>
+    </div>
+
+    <div class="row" id="rowArgs" hidden>
+      <input id="addArgs" placeholder="Args (optional, getrennt mit Leerzeichen)" />
+      <input id="addStartIn" placeholder="Startordner (optional)" />
+    </div>
+
+    <div class="row">
+      <select id="addIconMode">
+        <option value="auto">Icon: Auto (bei Programmen)</option>
+        <option value="emoji">Icon: Emoji</option>
+        <option value="image">Icon: Bilddatei</option>
+      </select>
+      <input id="addIconEmoji" placeholder="Emoji, z.B. 🚀" maxlength="4" />
+      <input id="addIconFile" type="file" accept="image/*" />
+    </div>
+
+    <div class="rowActions">
+      <button class="btn" id="addCancel" type="button">Abbrechen</button>
+      <button class="btn primary" id="addSave" type="button">Speichern</button>
+    </div>
+  </dialog>
+  <dialog id="dlgTile">
+    <div class="dlgTitle" id="tileMenuTitle">Tile</div>
+    <div class="dlgHint">Built-ins koennen ausgeblendet werden, Custom Tiles koennen geloescht werden.</div>
+
+    <div class="row">
+      <button class="btn" id="tileFav" type="button">Favorit</button>
+      <button class="btn warn" id="tileHide" type="button">Ausblenden</button>
+      <button class="btn danger" id="tileDelete" type="button">Loeschen</button>
+    </div>
+
+    <div class="rowActions">
+      <button class="btn" id="tileClose" type="button">Schliessen</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlgSettings">
+    <div class="dlgTitle">Einstellungen</div>
+    <div class="dlgHint">Token lokal speichern, Launcher automatisch erkennen oder direkt per Dateidialog setzen.</div>
+
+    <div class="row">
+      <input id="tokenInput" placeholder="Token" />
+      <button class="btn primary" id="saveToken" type="button">Token speichern</button>
+      <button class="btn" id="refreshAll" type="button">Neu laden</button>
+    </div>
+
+    <div class="setGroup">
+      <div class="dlgTitle" style="font-size: 14px;">Launcher Pfade</div>
+      <div class="setButtons">
+        <button class="btn" id="autoDetectAll" type="button">Alle automatisch erkennen</button>
+      </div>
+      <div id="launchersBox"></div>
+    </div>
+
+    <div class="setGroup">
+      <div class="dlgTitle" style="font-size: 14px;">WoW Ordner + Prozess</div>
+      <div id="wowBox"></div>
+    </div>
+
+    <div class="setGroup">
+      <div class="dlgTitle" style="font-size: 14px;">Ausgeblendete Tiles</div>
+      <div id="hiddenBox"></div>
+    </div>
+
+    <div class="rowActions">
+      <button class="btn" id="settingsClose" type="button">Schliessen</button>
+    </div>
+  </dialog>
+
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
+    const LS = {
+      token: "sd_token",
+      profile: "sd_profile",
+      page: "sd_page",
+      fav: "sd_fav",
+      recent: "sd_recent",
+      hidden: "sd_hidden"
+    };
+
+    const state = {
+      token: localStorage.getItem(LS.token) || "",
+      profile: localStorage.getItem(LS.profile) || "",
+      page: localStorage.getItem(LS.page) || "",
+      favorites: new Set(JSON.parse(localStorage.getItem(LS.fav) || "[]")),
+      recent: JSON.parse(localStorage.getItem(LS.recent) || "[]"),
+      hidden: new Set(JSON.parse(localStorage.getItem(LS.hidden) || "[]")),
+      profiles: [],
+      tiles: [],
+      wowRunning: null,
+      longPressTimer: null,
+      longPressTileId: "",
+      toastTimer: null
+    };
+
+    const el = {
+      profileTabs: document.getElementById("profileTabs"),
+      pageTabs: document.getElementById("pageTabs"),
+      q: document.getElementById("q"),
+      clearQ: document.getElementById("clearQ"),
+      sectionTitle: document.getElementById("sectionTitle"),
+      grid: document.getElementById("grid"),
+      empty: document.getElementById("empty"),
+      recentSection: document.getElementById("recentSection"),
+      recentGrid: document.getElementById("recentGrid"),
+
+      apiState: document.getElementById("apiState"),
+      dotApi: document.getElementById("dotApi"),
+      wowState: document.getElementById("wowState"),
+      dotWow: document.getElementById("dotWow"),
+
+      btnAdd: document.getElementById("btnAdd"),
+      btnSettings: document.getElementById("btnSettings"),
+
+      toast: document.getElementById("toast"),
+
+      dlgAdd: document.getElementById("dlgAdd"),
+      addType: document.getElementById("addType"),
+      addProfile: document.getElementById("addProfile"),
+      addPage: document.getElementById("addPage"),
+      addLabel: document.getElementById("addLabel"),
+      addSubtitle: document.getElementById("addSubtitle"),
+      addTarget: document.getElementById("addTarget"),
+      addBrowse: document.getElementById("addBrowse"),
+      rowTarget: document.getElementById("rowTarget"),
+      rowAction: document.getElementById("rowAction"),
+      addAction: document.getElementById("addAction"),
+      rowArgs: document.getElementById("rowArgs"),
+      addArgs: document.getElementById("addArgs"),
+      addStartIn: document.getElementById("addStartIn"),
+      addIconMode: document.getElementById("addIconMode"),
+      addIconEmoji: document.getElementById("addIconEmoji"),
+      addIconFile: document.getElementById("addIconFile"),
+      addCancel: document.getElementById("addCancel"),
+      addSave: document.getElementById("addSave"),
+
+      dlgTile: document.getElementById("dlgTile"),
+      tileMenuTitle: document.getElementById("tileMenuTitle"),
+      tileFav: document.getElementById("tileFav"),
+      tileHide: document.getElementById("tileHide"),
+      tileDelete: document.getElementById("tileDelete"),
+      tileClose: document.getElementById("tileClose"),
+
+      dlgSettings: document.getElementById("dlgSettings"),
+      tokenInput: document.getElementById("tokenInput"),
+      saveToken: document.getElementById("saveToken"),
+      refreshAll: document.getElementById("refreshAll"),
+      autoDetectAll: document.getElementById("autoDetectAll"),
+      launchersBox: document.getElementById("launchersBox"),
+      wowBox: document.getElementById("wowBox"),
+      hiddenBox: document.getElementById("hiddenBox"),
+      settingsClose: document.getElementById("settingsClose")
+    };
+
+    function saveSet(key, setValue) {
+      localStorage.setItem(key, JSON.stringify(Array.from(setValue)));
+    }
+
+    function showToast(message) {
+      if (state.toastTimer) clearTimeout(state.toastTimer);
+      el.toast.textContent = message;
+      el.toast.className = "toast show";
+      state.toastTimer = setTimeout(() => {
+        el.toast.className = "toast";
+      }, 2200);
+    }
+
+    function setApiState(text, statusClass) {
+      el.apiState.textContent = text;
+      el.dotApi.className = `dot ${statusClass || ""}`.trim();
+    }
+
+    function setWowState(text, statusClass) {
+      el.wowState.textContent = text;
+      el.dotWow.className = `dot ${statusClass || ""}`.trim();
+    }
+
+    async function api(path, opts = {}) {
+      if (!state.token) throw new Error("Token fehlt");
+      const method = opts.method || "GET";
+      const response = await fetch(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          "X-Token": state.token
+        },
+        body: opts.body ? JSON.stringify(opts.body) : undefined
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error((data && data.error) ? data.error : `HTTP ${response.status}`);
+      return data;
+    }
+
+    function profileById(id) {
+      return state.profiles.find((p) => p.id === id) || null;
+    }
+
+    function pagesForProfile(profileId) {
+      const p = profileById(profileId);
+      if (!p || !Array.isArray(p.pages) || !p.pages.length) return [{ id: "main", label: "Main" }];
+      return p.pages;
+    }
+
+    function parseArgs(text) {
+      const raw = String(text || "").trim();
+      if (!raw) return [];
+      return raw.split(/\s+/).filter(Boolean);
+    }
+
+    function tileIconNode(tile) {
+      const wrap = document.createElement("div");
+      wrap.className = "iconWrap";
+
+      if (tile.iconData) {
+        const img = document.createElement("img");
+        img.src = tile.iconData;
+        img.alt = "";
+        wrap.appendChild(img);
+        return wrap;
+      }
+
+      wrap.textContent = tile.icon || "■";
+      return wrap;
+    }
+
+    function applySearchFilter(tile, q) {
+      if (!q) return true;
+      const needle = q.toLowerCase();
+      return [tile.label, tile.subtitle, tile.type]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(needle));
+    }
+
+    function allVisibleTiles() {
+      return state.tiles.filter((t) => !state.hidden.has(t.id));
+    }
+
+    function currentTiles() {
+      const q = el.q.value.trim();
+      const tiles = allVisibleTiles().filter((t) => applySearchFilter(t, q));
+      if (state.profile === "fav") {
+        return tiles.filter((t) => state.favorites.has(t.id));
+      }
+      return tiles.filter((t) => t.profile === state.profile && (t.page || "main") === state.page);
+    }
+
+    function renderProfileTabs() {
+      el.profileTabs.textContent = "";
+      for (const p of state.profiles) {
+        const btn = document.createElement("button");
+        btn.className = "tab";
+        btn.type = "button";
+        btn.dataset.profile = p.id;
+        btn.setAttribute("aria-selected", String(p.id === state.profile));
+        btn.textContent = p.label;
+        el.profileTabs.appendChild(btn);
+      }
+    }
+
+    function renderPageTabs() {
+      el.pageTabs.textContent = "";
+      const pages = pagesForProfile(state.profile);
+      for (const page of pages) {
+        const btn = document.createElement("button");
+        btn.className = "tab";
+        btn.type = "button";
+        btn.dataset.page = page.id;
+        btn.setAttribute("aria-selected", String(page.id === state.page));
+        btn.textContent = page.label;
+        el.pageTabs.appendChild(btn);
+      }
+    }
+    function renderTiles() {
+      renderProfileTabs();
+      renderPageTabs();
+
+      const profileLabel = profileById(state.profile)?.label || "Tiles";
+      const pageLabel = pagesForProfile(state.profile).find((p) => p.id === state.page)?.label || "Main";
+      el.sectionTitle.textContent = `${profileLabel} / ${pageLabel}`;
+
+      const tiles = currentTiles();
+      el.grid.textContent = "";
+
+      for (const tile of tiles) {
+        const btn = document.createElement("button");
+        btn.className = "tile";
+        btn.type = "button";
+        btn.dataset.id = tile.id;
+
+        btn.appendChild(tileIconNode(tile));
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        const title = document.createElement("strong");
+        title.textContent = tile.label;
+        const sub = document.createElement("span");
+        sub.textContent = tile.subtitle || tile.type;
+        meta.appendChild(title);
+        meta.appendChild(sub);
+        btn.appendChild(meta);
+
+        if (state.favorites.has(tile.id)) {
+          const fav = document.createElement("div");
+          fav.className = "fav";
+          fav.textContent = "Fav";
+          btn.appendChild(fav);
+        }
+
+        el.grid.appendChild(btn);
+      }
+
+      el.empty.hidden = tiles.length > 0;
+
+      el.recentGrid.textContent = "";
+      const map = new Map(allVisibleTiles().map((t) => [t.id, t]));
+      const recentTiles = state.recent.map((id) => map.get(id)).filter(Boolean).slice(0, 6);
+      if (el.q.value.trim() || !recentTiles.length) {
+        el.recentSection.hidden = true;
+      } else {
+        el.recentSection.hidden = false;
+        for (const tile of recentTiles) {
+          const node = document.createElement("button");
+          node.className = "tile";
+          node.type = "button";
+          node.dataset.id = tile.id;
+          node.appendChild(tileIconNode(tile));
+
+          const m = document.createElement("div");
+          m.className = "meta";
+          const t = document.createElement("strong");
+          t.textContent = tile.label;
+          const s = document.createElement("span");
+          s.textContent = tile.subtitle || tile.type;
+          m.appendChild(t);
+          m.appendChild(s);
+          node.appendChild(m);
+
+          el.recentGrid.appendChild(node);
+        }
+      }
+    }
+
+    async function loadBootstrap() {
+      const data = await api("/api/bootstrap");
+      state.profiles = Array.isArray(data.profiles) ? data.profiles : [];
+      state.tiles = Array.isArray(data.tiles) ? data.tiles : [];
+      state.wowRunning = Boolean(data.wowRunning);
+
+      if (!state.profile || !profileById(state.profile)) {
+        state.profile = state.profiles[0]?.id || "work";
+      }
+
+      const pages = pagesForProfile(state.profile);
+      if (!state.page || !pages.some((p) => p.id === state.page)) {
+        state.page = pages[0]?.id || "main";
+      }
+
+      localStorage.setItem(LS.profile, state.profile);
+      localStorage.setItem(LS.page, state.page);
+      renderTiles();
+    }
+
+    async function pollStatus() {
+      try {
+        await api("/api/health");
+        setApiState("online", "ok");
+      } catch (error) {
+        setApiState(state.token ? "offline" : "token?", state.token ? "err" : "");
+      }
+
+      try {
+        const st = await api("/api/status");
+        state.wowRunning = Boolean(st.wowRunning);
+        setWowState(state.wowRunning ? "running" : "stopped", state.wowRunning ? "ok" : "");
+      } catch {
+        state.wowRunning = null;
+        setWowState("unknown", "err");
+      }
+    }
+
+    function pushRecent(id) {
+      state.recent = [id, ...state.recent.filter((x) => x !== id)].slice(0, 12);
+      localStorage.setItem(LS.recent, JSON.stringify(state.recent));
+    }
+
+    async function runTile(id) {
+      const tile = state.tiles.find((x) => x.id === id);
+      if (!tile) return;
+
+      const target = document.querySelector(`button.tile[data-id="${CSS.escape(id)}"]`);
+      if (target) target.disabled = true;
+
+      try {
+        await api("/api/run", { method: "POST", body: { tileId: id } });
+        pushRecent(id);
+        setApiState("ok", "ok");
+        showToast(`Ausgefuehrt: ${tile.label}`);
+      } catch (error) {
+        setApiState("fehler", "err");
+        showToast(`Fehler: ${error.message || String(error)}`);
+      } finally {
+        if (target) target.disabled = false;
+        renderTiles();
+      }
+    }
+
+    function openTileMenu(tile) {
+      el.tileMenuTitle.textContent = tile.label;
+      el.tileFav.textContent = state.favorites.has(tile.id) ? "Favorit entfernen" : "Als Favorit";
+      el.tileDelete.style.display = tile.builtin ? "none" : "";
+      el.tileHide.style.display = "";
+      el.dlgTile.showModal();
+
+      el.tileFav.onclick = () => {
+        if (state.favorites.has(tile.id)) state.favorites.delete(tile.id);
+        else state.favorites.add(tile.id);
+        saveSet(LS.fav, state.favorites);
+        renderTiles();
+        el.dlgTile.close();
+      };
+
+      el.tileHide.onclick = () => {
+        state.hidden.add(tile.id);
+        saveSet(LS.hidden, state.hidden);
+        renderTiles();
+        el.dlgTile.close();
+      };
+
+      el.tileDelete.onclick = async () => {
+        if (tile.builtin) return;
+        try {
+          await api("/api/tiles/delete", { method: "POST", body: { id: tile.id } });
+          state.favorites.delete(tile.id);
+          state.hidden.delete(tile.id);
+          saveSet(LS.fav, state.favorites);
+          saveSet(LS.hidden, state.hidden);
+          await loadBootstrap();
+          showToast("Tile geloescht");
+        } catch (error) {
+          showToast(`Loeschen fehlgeschlagen: ${error.message || String(error)}`);
+        } finally {
+          el.dlgTile.close();
+        }
+      };
+
+      el.tileClose.onclick = () => el.dlgTile.close();
+    }
+
+    function fillProfileSelect(selectEl, selectedId) {
+      selectEl.textContent = "";
+      for (const p of state.profiles) {
+        if (p.id === "fav") continue;
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.label;
+        selectEl.appendChild(opt);
+      }
+      if (selectedId && Array.from(selectEl.options).some((o) => o.value === selectedId)) {
+        selectEl.value = selectedId;
+      }
+    }
+
+    function fillPageSelect(profileId, pageSelect, selectedId = "") {
+      pageSelect.textContent = "";
+      const pages = pagesForProfile(profileId);
+      for (const page of pages) {
+        const opt = document.createElement("option");
+        opt.value = page.id;
+        opt.textContent = page.label;
+        pageSelect.appendChild(opt);
+      }
+      if (selectedId && Array.from(pageSelect.options).some((o) => o.value === selectedId)) {
+        pageSelect.value = selectedId;
+      }
+    }
+
+    function updateAddFormVisibility() {
+      const type = el.addType.value;
+      el.rowAction.hidden = type !== "action";
+      el.rowTarget.hidden = type === "action";
+      el.rowArgs.hidden = type !== "app";
+
+      const iconMode = el.addIconMode.value;
+      el.addIconEmoji.style.display = iconMode === "emoji" ? "" : "none";
+      el.addIconFile.style.display = iconMode === "image" ? "" : "none";
+
+      const browseKind = type === "folder" ? "folder" : "file";
+      el.addBrowse.dataset.kind = browseKind;
+      el.addBrowse.style.display = (type === "app" || type === "folder") ? "" : "none";
+    }
+
+    async function readImageDataUrl(file) {
+      if (!file) return "";
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Bild konnte nicht gelesen werden"));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function openAddDialog() {
+      fillProfileSelect(el.addProfile, state.profile === "fav" ? "work" : state.profile);
+      fillPageSelect(el.addProfile.value || "work", el.addPage, state.page || "main");
+
+      el.addType.value = "url";
+      el.addLabel.value = "";
+      el.addSubtitle.value = "";
+      el.addTarget.value = "";
+      el.addAction.value = "terminal";
+      el.addArgs.value = "";
+      el.addStartIn.value = "";
+      el.addIconMode.value = "auto";
+      el.addIconEmoji.value = "";
+      el.addIconFile.value = "";
+      updateAddFormVisibility();
+      el.dlgAdd.showModal();
+    }
+    async function openSettingsDialog() {
+      el.tokenInput.value = state.token;
+
+      try {
+        const settings = await api("/api/settings");
+
+        el.launchersBox.textContent = "";
+        for (const launcher of settings.launchers || []) {
+          const row = document.createElement("div");
+          row.className = "setRow";
+
+          const label = document.createElement("div");
+          label.className = "setLabel";
+          label.textContent = `${launcher.label} (${launcher.id})`;
+          row.appendChild(label);
+
+          const input = document.createElement("input");
+          input.value = launcher.path || "";
+          input.placeholder = "Pfad";
+          row.appendChild(input);
+
+          const buttons = document.createElement("div");
+          buttons.className = "setButtons";
+
+          const btnBrowse = document.createElement("button");
+          btnBrowse.className = "btn";
+          btnBrowse.type = "button";
+          btnBrowse.textContent = "Browse";
+          btnBrowse.onclick = async () => {
+            try {
+              const r = await api("/api/settings/browse", { method: "POST", body: { kind: "file", title: `${launcher.label} waehlen` } });
+              if (r.path) {
+                input.value = r.path;
+                await api("/api/settings/launcher", { method: "POST", body: { id: launcher.id, path: r.path } });
+                showToast(`${launcher.label} gesetzt`);
+              }
+            } catch (error) {
+              showToast(`Browse Fehler: ${error.message || String(error)}`);
+            }
+          };
+
+          const btnAuto = document.createElement("button");
+          btnAuto.className = "btn";
+          btnAuto.type = "button";
+          btnAuto.textContent = "Auto";
+          btnAuto.onclick = async () => {
+            try {
+              await api("/api/settings/autodetect", { method: "POST", body: { launcherId: launcher.id } });
+              await openSettingsDialog();
+              showToast(`${launcher.label} automatisch geprueft`);
+            } catch (error) {
+              showToast(`Auto Fehler: ${error.message || String(error)}`);
+            }
+          };
+
+          const btnSave = document.createElement("button");
+          btnSave.className = "btn primary";
+          btnSave.type = "button";
+          btnSave.textContent = "Speichern";
+          btnSave.onclick = async () => {
+            try {
+              await api("/api/settings/launcher", { method: "POST", body: { id: launcher.id, path: input.value } });
+              showToast(`${launcher.label} gespeichert`);
+            } catch (error) {
+              showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
+            }
+          };
+
+          buttons.appendChild(btnBrowse);
+          buttons.appendChild(btnAuto);
+          buttons.appendChild(btnSave);
+          row.appendChild(buttons);
+          el.launchersBox.appendChild(row);
+        }
+
+        el.wowBox.textContent = "";
+        const folders = settings.wow && settings.wow.folders ? settings.wow.folders : {};
+        const keys = ["addons", "logs", "wtf"];
+        for (const key of keys) {
+          const row = document.createElement("div");
+          row.className = "setRow";
+
+          const label = document.createElement("div");
+          label.className = "setLabel";
+          label.textContent = `WoW ${key}`;
+          row.appendChild(label);
+
+          const input = document.createElement("input");
+          input.value = folders[key] || "";
+          row.appendChild(input);
+
+          const buttons = document.createElement("div");
+          buttons.className = "setButtons";
+
+          const btnBrowse = document.createElement("button");
+          btnBrowse.className = "btn";
+          btnBrowse.type = "button";
+          btnBrowse.textContent = "Browse";
+          btnBrowse.onclick = async () => {
+            try {
+              const r = await api("/api/settings/browse", { method: "POST", body: { kind: "folder", title: `WoW ${key} Ordner` } });
+              if (r.path) {
+                input.value = r.path;
+                await api("/api/settings/wow-folder", { method: "POST", body: { key, path: r.path } });
+                showToast(`WoW ${key} gesetzt`);
+              }
+            } catch (error) {
+              showToast(`Browse Fehler: ${error.message || String(error)}`);
+            }
+          };
+
+          const btnSave = document.createElement("button");
+          btnSave.className = "btn primary";
+          btnSave.type = "button";
+          btnSave.textContent = "Speichern";
+          btnSave.onclick = async () => {
+            try {
+              await api("/api/settings/wow-folder", { method: "POST", body: { key, path: input.value } });
+              showToast(`WoW ${key} gespeichert`);
+            } catch (error) {
+              showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
+            }
+          };
+
+          buttons.appendChild(btnBrowse);
+          buttons.appendChild(btnSave);
+          row.appendChild(buttons);
+          el.wowBox.appendChild(row);
+        }
+
+        const procRow = document.createElement("div");
+        procRow.className = "setRow";
+        const procLabel = document.createElement("div");
+        procLabel.className = "setLabel";
+        procLabel.textContent = "WoW Prozessname";
+        procRow.appendChild(procLabel);
+        const procInput = document.createElement("input");
+        procInput.value = settings.wow?.processName || "WowClassic.exe";
+        procRow.appendChild(procInput);
+        const procButtons = document.createElement("div");
+        procButtons.className = "setButtons";
+        const procSave = document.createElement("button");
+        procSave.className = "btn primary";
+        procSave.type = "button";
+        procSave.textContent = "Speichern";
+        procSave.onclick = async () => {
+          try {
+            await api("/api/settings/wow-process", { method: "POST", body: { processName: procInput.value } });
+            showToast("WoW Prozess gespeichert");
+          } catch (error) {
+            showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
+          }
+        };
+        procButtons.appendChild(procSave);
+        procRow.appendChild(procButtons);
+        el.wowBox.appendChild(procRow);
+
+        el.hiddenBox.textContent = "";
+        if (!state.hidden.size) {
+          const msg = document.createElement("div");
+          msg.className = "setLabel";
+          msg.textContent = "Keine ausgeblendeten Tiles.";
+          el.hiddenBox.appendChild(msg);
+        } else {
+          const tileMap = new Map(state.tiles.map((t) => [t.id, t]));
+          for (const id of Array.from(state.hidden)) {
+            const row = document.createElement("div");
+            row.className = "setRow";
+            const label = document.createElement("div");
+            label.className = "setLabel";
+            label.textContent = tileMap.get(id)?.label || id;
+            row.appendChild(label);
+            const btn = document.createElement("button");
+            btn.className = "btn";
+            btn.type = "button";
+            btn.textContent = "Einblenden";
+            btn.onclick = () => {
+              state.hidden.delete(id);
+              saveSet(LS.hidden, state.hidden);
+              renderTiles();
+              openSettingsDialog();
+            };
+            row.appendChild(btn);
+            el.hiddenBox.appendChild(row);
+          }
+        }
+      } catch (error) {
+        el.launchersBox.textContent = "";
+        const msg = document.createElement("div");
+        msg.className = "setLabel";
+        msg.textContent = `Konnte Einstellungen nicht laden: ${error.message || String(error)}`;
+        el.launchersBox.appendChild(msg);
+      }
+
+      el.dlgSettings.showModal();
+    }
+
+    el.clearQ.addEventListener("click", () => {
+      el.q.value = "";
+      renderTiles();
+    });
+    el.q.addEventListener("input", renderTiles);
+
+    el.profileTabs.addEventListener("click", (event) => {
+      const btn = event.target.closest("button.tab[data-profile]");
+      if (!btn) return;
+      state.profile = btn.dataset.profile;
+      const pages = pagesForProfile(state.profile);
+      state.page = pages[0]?.id || "main";
+      localStorage.setItem(LS.profile, state.profile);
+      localStorage.setItem(LS.page, state.page);
+      renderTiles();
+    });
+
+    el.pageTabs.addEventListener("click", (event) => {
+      const btn = event.target.closest("button.tab[data-page]");
+      if (!btn) return;
+      state.page = btn.dataset.page;
+      localStorage.setItem(LS.page, state.page);
+      renderTiles();
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+      const btn = event.target.closest("button.tile[data-id]");
+      if (!btn) return;
+      state.longPressTileId = btn.dataset.id;
+      state.longPressTimer = setTimeout(() => {
+        state.longPressTimer = null;
+        const tile = state.tiles.find((x) => x.id === state.longPressTileId);
+        if (tile) openTileMenu(tile);
+      }, 450);
+    });
+
+    document.addEventListener("pointerup", () => {
+      if (state.longPressTimer) clearTimeout(state.longPressTimer);
+      state.longPressTimer = null;
+    });
+
+    document.addEventListener("pointermove", (event) => {
+      if (!state.longPressTimer) return;
+      if (Math.abs(event.movementX) + Math.abs(event.movementY) > 8) {
+        clearTimeout(state.longPressTimer);
+        state.longPressTimer = null;
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      const btn = event.target.closest("button.tile[data-id]");
+      if (!btn || el.dlgTile.open) return;
+      runTile(btn.dataset.id);
+    });
+
+    el.btnAdd.addEventListener("click", () => {
+      if (!state.token) {
+        showToast("Bitte zuerst Token setzen");
+        openSettingsDialog();
+        return;
+      }
+      openAddDialog();
+    });
+
+    el.addProfile.addEventListener("change", () => {
+      fillPageSelect(el.addProfile.value, el.addPage);
+    });
+    el.addType.addEventListener("change", updateAddFormVisibility);
+    el.addIconMode.addEventListener("change", updateAddFormVisibility);
+
+    el.addBrowse.addEventListener("click", async () => {
+      const kind = el.addBrowse.dataset.kind || "file";
+      try {
+        const result = await api("/api/settings/browse", { method: "POST", body: { kind } });
+        if (result.path) el.addTarget.value = result.path;
+      } catch (error) {
+        showToast(`Browse Fehler: ${error.message || String(error)}`);
+      }
+    });
+
+    el.addCancel.addEventListener("click", () => el.dlgAdd.close());
+
+    el.addSave.addEventListener("click", async () => {
+      try {
+        const type = el.addType.value;
+        const profile = el.addProfile.value;
+        const page = el.addPage.value;
+        const label = String(el.addLabel.value || "").trim();
+        const subtitle = String(el.addSubtitle.value || "").trim();
+        if (!profile || !page || !label) throw new Error("Profil, Seite und Titel sind Pflicht");
+
+        const tile = {
+          profile,
+          page,
+          label,
+          subtitle,
+          type,
+          iconMode: el.addIconMode.value,
+          icon: "",
+          iconData: ""
+        };
+
+        if (tile.iconMode === "emoji") tile.icon = String(el.addIconEmoji.value || "").trim();
+        if (tile.iconMode === "image") {
+          tile.iconData = await readImageDataUrl(el.addIconFile.files && el.addIconFile.files[0]);
+          if (!tile.iconData) throw new Error("Bitte eine Bilddatei waehlen");
+        }
+
+        if (type === "action") {
+          tile.action = el.addAction.value;
+        } else {
+          tile.target = String(el.addTarget.value || "").trim();
+          if (!tile.target) throw new Error("Ziel fehlt");
+        }
+
+        if (type === "url") {
+          const normalized = tile.target.includes("://") ? tile.target : `https://${tile.target}`;
+          const check = new URL(normalized);
+          if (!["http:", "https:"].includes(check.protocol)) throw new Error("Nur http/https erlaubt");
+          tile.target = check.toString();
+        }
+
+        if (type === "app") {
+          tile.args = parseArgs(el.addArgs.value);
+          const startIn = String(el.addStartIn.value || "").trim();
+          if (startIn) tile.startIn = startIn;
+        }
+
+        await api("/api/tiles/upsert", { method: "POST", body: { tile } });
+        el.dlgAdd.close();
+        await loadBootstrap();
+        showToast("Tile gespeichert");
+      } catch (error) {
+        showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.btnSettings.addEventListener("click", openSettingsDialog);
+    el.settingsClose.addEventListener("click", () => el.dlgSettings.close());
+
+    el.saveToken.addEventListener("click", async () => {
+      state.token = String(el.tokenInput.value || "").trim();
+      localStorage.setItem(LS.token, state.token);
+      showToast("Token gespeichert");
+      try {
+        await loadBootstrap();
+        await pollStatus();
+      } catch (error) {
+        showToast(`Laden fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.refreshAll.addEventListener("click", async () => {
+      try {
+        await loadBootstrap();
+        await pollStatus();
+        showToast("Neu geladen");
+      } catch (error) {
+        showToast(`Neu laden fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.autoDetectAll.addEventListener("click", async () => {
+      try {
+        await api("/api/settings/autodetect", { method: "POST", body: {} });
+        await openSettingsDialog();
+        showToast("Auto-Erkennung ausgefuehrt");
+      } catch (error) {
+        showToast(`Auto-Erkennung fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    async function init() {
+      if (!state.token) {
+        setApiState("token?", "");
+        setWowState("unknown", "");
+        renderTiles();
+        openSettingsDialog();
+        return;
+      }
+
+      try {
+        await loadBootstrap();
+        await pollStatus();
+      } catch (error) {
+        showToast(`Init Fehler: ${error.message || String(error)}`);
+        setApiState("offline", "err");
+      }
+
+      setInterval(async () => {
+        try {
+          await pollStatus();
+          await loadBootstrap();
+        } catch {
+          setApiState("offline", "err");
+        }
+      }, 5000);
+    }
+
+    init();
+  </script>
+</body>
+</html>

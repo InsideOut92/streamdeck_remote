@@ -1,0 +1,25 @@
+﻿{
+  "name": "streamdeck-remote",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Touch launcher app similar to Stream Deck with configurable profiles and pages.",
+  "main": "server.js",
+  "bin": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build:win": "npx pkg . --targets node18-win-x64 --output dist/streamdeck_remote.exe",
+    "build": "npm run build:win"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "pkg": {
+    "scripts": [
+      "server.js"
+    ],
+    "assets": [
+      "public/**/*"
+    ]
+  }
+}
