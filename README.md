@@ -86,7 +86,7 @@ npm run build:win
 - `workspaceDir`
 - `rateLimit.windowMs`, `rateLimit.max`
 - `wow.processName`, `wow.folders.*`
-- `logging.enabled`, `logging.dir`, `logging.maxFiles`
+- `logging.enabled`, `logging.dir`, `logging.maxFiles`, `logging.level` (`ERROR|WARN|INFO|DEBUG`)
 - `launchers.*` (serverseitige App-Pfade)
 
 ### Umgebungvariablen
@@ -96,6 +96,8 @@ npm run build:win
   - startet im sicheren Testmodus (externe Prozesse werden nicht wirklich gestartet)
 - `STREAMDECK_DISABLE_AUTODETECT=1`:
   - deaktiviert Launcher-Autodetect
+- `STREAMDECK_LOG_LEVEL=ERROR|WARN|INFO|DEBUG`:
+  - optionales Laufzeit-Override fuer das aktive Log-Level (ueberschreibt `logging.level`)
 
 ## API (Kurzuebersicht)
 - `GET /api/health`
@@ -117,6 +119,9 @@ Alle API-Calls (ausser statische Dateien) erwarten Token via Header:
 ## Logs und Debugging
 - Dev-Logs: `./logs/server-YYYY-MM-DD.log`
 - EXE-Logs: `%APPDATA%/StreamDeckRemote/logs/server-YYYY-MM-DD.log`
+- Nur Fehler loggen:
+  - `config.json` -> `"logging": { "level": "ERROR" }`
+  - oder beim Start: `set STREAMDECK_LOG_LEVEL=ERROR`
 - Request-Korrelation:
   - Jede API-Response enthaelt `X-Request-Id`
 - Live-Log-Auszug:

@@ -670,6 +670,12 @@
           <option value="true">Datei-Logging: aktiv</option>
           <option value="false">Datei-Logging: aus</option>
         </select>
+        <select id="logLevel">
+          <option value="ERROR">Level: ERROR</option>
+          <option value="WARN">Level: WARN</option>
+          <option value="INFO" selected>Level: INFO</option>
+          <option value="DEBUG">Level: DEBUG</option>
+        </select>
         <input id="logMaxFiles" type="number" min="3" max="90" step="1" placeholder="max Dateien (3-90)" />
       </div>
       <div class="row">
@@ -813,6 +819,7 @@
       logsCopy: document.getElementById("logsCopy"),
       logLines: document.getElementById("logLines"),
       logEnabled: document.getElementById("logEnabled"),
+      logLevel: document.getElementById("logLevel"),
       logMaxFiles: document.getElementById("logMaxFiles"),
       logDir: document.getElementById("logDir"),
       logSave: document.getElementById("logSave"),
@@ -1101,12 +1108,14 @@
       el.logMeta.textContent = msg;
       el.logView.textContent = "";
       el.logEnabled.value = "true";
+      el.logLevel.value = "INFO";
       el.logMaxFiles.value = "14";
       el.logDir.value = "";
       el.logsRefresh.disabled = true;
       el.logsCopy.disabled = true;
       el.logSave.disabled = true;
       el.logEnabled.disabled = true;
+      el.logLevel.disabled = true;
       el.logMaxFiles.disabled = true;
       el.logDir.disabled = true;
       el.logLines.disabled = true;
@@ -1115,12 +1124,14 @@
     function setLoggingUi(logging) {
       const enabled = logging?.enabled !== false;
       el.logEnabled.value = enabled ? "true" : "false";
+      el.logLevel.value = String(logging?.effectiveLevel || logging?.level || "INFO").toUpperCase();
       el.logMaxFiles.value = String(logging?.maxFiles || 14);
       el.logDir.value = String(logging?.dir || "");
       el.logsRefresh.disabled = false;
       el.logsCopy.disabled = false;
       el.logSave.disabled = false;
       el.logEnabled.disabled = false;
+      el.logLevel.disabled = false;
       el.logMaxFiles.disabled = false;
       el.logDir.disabled = false;
       el.logLines.disabled = false;
@@ -1140,7 +1151,7 @@
       }
       const logLines = Array.isArray(data.lines) ? data.lines : [];
       el.logView.textContent = logLines.join("\n");
-      el.logMeta.textContent = `Zeilen: ${logLines.length} | Ordner: ${data.logDir || "-"} | Logging: ${data.loggingEnabled ? "aktiv" : "aus"}`;
+      el.logMeta.textContent = `Zeilen: ${logLines.length} | Ordner: ${data.logDir || "-"} | Logging: ${data.loggingEnabled ? "aktiv" : "aus"} | Level: ${data.loggingLevel || "-"}`;
     }
 
     function tileIconNode(tile) {
@@ -2134,6 +2145,7 @@
           method: "POST",
           body: {
             enabled: el.logEnabled.value === "true",
+            level: String(el.logLevel.value || "INFO").toUpperCase(),
             maxFiles: Number(el.logMaxFiles.value) || 14,
             dir: String(el.logDir.value || "").trim()
           }

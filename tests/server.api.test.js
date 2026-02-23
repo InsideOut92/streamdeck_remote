@@ -121,8 +121,19 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
       enabled: false,
       dir: "",
       maxFiles: 7
+    },
+    launchers: {
+      fuzzyTest: {
+        label: "Fuzzy Test App",
+        path: "",
+        candidates: []
+      }
     }
   };
+  const fuzzyProgramPath = path.join(tmpDir, "CurseForge.exe");
+  fs.writeFileSync(fuzzyProgramPath, "fake exe for resolver test", "utf8");
+  initialConfig.launchers.fuzzyTest.path = fuzzyProgramPath;
+  initialConfig.launchers.fuzzyTest.candidates = [fuzzyProgramPath];
   fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2), "utf8");
 
   const child = spawn(process.execPath, ["server.js"], {
@@ -154,6 +165,19 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     assert.equal(settings.status, 200);
     assert.equal(settings.body?.ok, true);
     assert.equal(typeof settings.body?.wow?.processName, "string");
+
+    const loggingUpdate = await requestJson(baseUrl, token, "/api/settings/logging", {
+      method: "POST",
+      body: {
+        enabled: false,
+        dir: "",
+        maxFiles: 7,
+        level: "ERROR"
+      }
+    });
+    assert.equal(loggingUpdate.status, 200);
+    assert.equal(loggingUpdate.body?.logging?.level, "ERROR");
+    assert.equal(loggingUpdate.body?.logging?.effectiveLevel, "ERROR");
 
     const createTile = await requestJson(baseUrl, token, "/api/tiles/upsert", {
       method: "POST",
@@ -198,6 +222,14 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     });
     assert.equal(updateTile.status, 200);
     assert.equal(updateTile.body?.tile?.label, "CI Tile Edited");
+
+    const fuzzyResolve = await requestJson(baseUrl, token, "/api/programs/resolve", {
+      method: "POST",
+      body: { input: "Curse Forge.exe" }
+    });
+    assert.equal(fuzzyResolve.status, 200);
+    const resolvedFuzzyPath = path.normalize(String(fuzzyResolve.body?.path || ""));
+    assert.ok(resolvedFuzzyPath.toLowerCase().endsWith(`${path.sep}curseforge.exe`));
 
     const runTile = await requestJson(baseUrl, token, "/api/run", {
       method: "POST",

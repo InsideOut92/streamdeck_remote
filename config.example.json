@@ -18,6 +18,7 @@
   "logging": {
     "enabled": true,
     "dir": "",
-    "maxFiles": 14
+    "maxFiles": 14,
+    "level": "INFO"
   }
 }

@@ -33,6 +33,12 @@ const APP_FILE_EXTENSIONS = new Set([".exe", ".lnk", ".bat", ".cmd", ".com"]);
 const PROGRAM_INDEX_CACHE_MS = 120000;
 const LOG_FILE_PREFIX = "server-";
 const LOG_FILE_RE = /^server-\d{4}-\d{2}-\d{2}\.log$/;
+const LOG_LEVELS = Object.freeze({
+  ERROR: 0,
+  WARN: 1,
+  INFO: 2,
+  DEBUG: 3
+});
 const APP_VERSION = readPackageVersion();
 const APP_BUILD = detectBuildStamp();
 const PROCESS_STATUS_CACHE_MS = 3000;
@@ -51,6 +57,18 @@ function isTruthyEnv(value) {
   return /^(1|true|yes|on)$/i.test(String(value || "").trim());
 }
 
+function hasLogLevel(level) {
+  return Object.prototype.hasOwnProperty.call(LOG_LEVELS, String(level || "").trim().toUpperCase());
+}
+
+function normalizeLogLevel(value, fallback = "INFO") {
+  const raw = String(value || "").trim().toUpperCase();
+  if (hasLogLevel(raw)) return raw;
+  const safeFallback = String(fallback || "").trim().toUpperCase();
+  if (hasLogLevel(safeFallback)) return safeFallback;
+  return "INFO";
+}
+
 function printCliHelp() {
   process.stdout.write(
     [
@@ -61,7 +79,8 @@ function printCliHelp() {
       "",
       "Environment variables:",
       "  STREAMDECK_CONFIG_PATH   Optional absolute/relative path to config JSON",
-      "  STREAMDECK_DRY_RUN=1     Skip external process starts and only log run requests"
+      "  STREAMDECK_DRY_RUN=1     Skip external process starts and only log run requests",
+      "  STREAMDECK_LOG_LEVEL     ERROR | WARN | INFO | DEBUG"
     ].join("\n") + "\n"
   );
 }
@@ -275,6 +294,13 @@ function normalizeProgramLabel(filePath) {
     .trim();
 }
 
+function normalizeProgramMatchKey(value, stripExt = false) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+  const text = stripExt ? raw.replace(/\.(exe|lnk|bat|cmd|com)$/i, "") : raw;
+  return text.replace(/[^a-z0-9]+/g, "");
+}
+
 function collectLaunchableFiles(rootDir, options = {}) {
   const maxDepth = Number.isInteger(options.maxDepth) ? options.maxDepth : 3;
   const maxFiles = Number.isInteger(options.maxFiles) ? options.maxFiles : 1400;
@@ -326,6 +352,12 @@ function scoreProgram(entry, query) {
   const label = entry.labelLower;
   const file = entry.fileLower;
   const full = entry.pathLower;
+  const queryKey = normalizeProgramMatchKey(q, false);
+  const queryBaseKey = normalizeProgramMatchKey(q, true);
+
+  if (queryKey && queryKey === entry.fileKey) score += 260;
+  if (queryBaseKey && queryBaseKey === entry.fileBaseKey) score += 240;
+  if (queryBaseKey && queryBaseKey === entry.labelKey) score += 190;
 
   for (const token of tokens) {
     if (label === token) score += 220;
@@ -389,7 +421,10 @@ function buildProgramIndex() {
       fileName,
       labelLower: label.toLowerCase(),
       fileLower: fileName,
-      pathLower: safePath.toLowerCase()
+      pathLower: safePath.toLowerCase(),
+      labelKey: normalizeProgramMatchKey(label, true),
+      fileKey: normalizeProgramMatchKey(fileName, false),
+      fileBaseKey: normalizeProgramMatchKey(fileName, true)
     });
   };
 
@@ -420,7 +455,19 @@ function buildProgramIndex() {
 
   const entries = Array.from(byPath.values())
     .sort((a, b) => a.label.localeCompare(b.label, "de", { sensitivity: "base" }))
-    .map((x) => ({ label: x.label, path: x.path, source: x.source, ext: x.ext, fileName: x.fileName, labelLower: x.labelLower, fileLower: x.fileLower, pathLower: x.pathLower }));
+    .map((x) => ({
+      label: x.label,
+      path: x.path,
+      source: x.source,
+      ext: x.ext,
+      fileName: x.fileName,
+      labelLower: x.labelLower,
+      fileLower: x.fileLower,
+      pathLower: x.pathLower,
+      labelKey: x.labelKey,
+      fileKey: x.fileKey,
+      fileBaseKey: x.fileBaseKey
+    }));
 
   programIndexCache = { ts: now, entries };
   return entries;
@@ -487,10 +534,29 @@ function resolveProgramPath(input) {
   const candidates = ranked.map((x) => x.entry);
 
   const lowered = expanded.toLowerCase();
-  const exact = candidates.find((x) => x.label.toLowerCase() === lowered || path.basename(x.path).toLowerCase() === lowered || path.basename(x.path, path.extname(x.path)).toLowerCase() === lowered);
+  const queryKey = normalizeProgramMatchKey(lowered, false);
+  const queryBaseKey = normalizeProgramMatchKey(lowered, true);
+  const exact = candidates.find((x) =>
+    x.label.toLowerCase() === lowered ||
+    path.basename(x.path).toLowerCase() === lowered ||
+    path.basename(x.path, path.extname(x.path)).toLowerCase() === lowered ||
+    (queryKey && x.fileKey === queryKey) ||
+    (queryBaseKey && (x.fileBaseKey === queryBaseKey || x.labelKey === queryBaseKey))
+  );
   if (exact) return exact.path;
   const byExeName = candidates.find((x) => x.fileLower === lowered || x.fileLower === `${lowered}.exe`);
   if (byExeName) return byExeName.path;
+
+  const best = ranked[0]?.entry;
+  if (best && queryBaseKey && queryBaseKey.length >= 4) {
+    if (
+      best.fileBaseKey.includes(queryBaseKey) ||
+      queryBaseKey.includes(best.fileBaseKey) ||
+      best.labelKey.includes(queryBaseKey)
+    ) {
+      return best.path;
+    }
+  }
   return chooseBestProgramMatch(ranked);
 }
 
@@ -603,7 +669,8 @@ function createDefaultConfig(oldConfig = {}) {
     logging: {
       enabled: oldConfig.logging?.enabled !== false,
       dir: typeof oldConfig.logging?.dir === "string" ? oldConfig.logging.dir : "",
-      maxFiles: Number.isInteger(oldConfig.logging?.maxFiles) ? oldConfig.logging.maxFiles : 14
+      maxFiles: Number.isInteger(oldConfig.logging?.maxFiles) ? oldConfig.logging.maxFiles : 14,
+      level: normalizeLogLevel(oldConfig.logging?.level, "INFO")
     },
     launchers: getDefaultLaunchers(oldConfig),
     profiles: getDefaultProfiles(),
@@ -746,7 +813,8 @@ function mergeWithDefaults(raw) {
     out.logging = {
       enabled: cfg.logging.enabled !== false,
       dir: typeof cfg.logging.dir === "string" ? cfg.logging.dir : out.logging.dir,
-      maxFiles: Number.isFinite(maxFiles) ? Math.max(3, Math.min(90, Math.floor(maxFiles))) : out.logging.maxFiles
+      maxFiles: Number.isFinite(maxFiles) ? Math.max(3, Math.min(90, Math.floor(maxFiles))) : out.logging.maxFiles,
+      level: normalizeLogLevel(cfg.logging.level, out.logging.level)
     };
   }
 
@@ -799,6 +867,7 @@ const loggerState = {
   enabled: true,
   dir: path.join(path.dirname(CONFIG_PATH), "logs"),
   maxFiles: 14,
+  level: normalizeLogLevel(process.env.STREAMDECK_LOG_LEVEL, "INFO"),
   writeCount: 0
 };
 
@@ -832,9 +901,13 @@ function pruneOldLogFiles() {
 
 function applyLoggingConfig(cfg = {}) {
   const loggingCfg = cfg.logging && typeof cfg.logging === "object" ? cfg.logging : {};
+  const configuredLevel = normalizeLogLevel(loggingCfg.level, "INFO");
+  const envLevelRaw = safeTrim(process.env.STREAMDECK_LOG_LEVEL, 16).toUpperCase();
+  const envLevel = hasLogLevel(envLevelRaw) ? envLevelRaw : "";
   loggerState.enabled = loggingCfg.enabled !== false;
   loggerState.maxFiles = Math.max(3, Math.min(90, Number(loggingCfg.maxFiles) || 14));
   loggerState.dir = resolveLogsDir(loggingCfg);
+  loggerState.level = envLevel || configuredLevel;
 
   if (!loggerState.enabled) return;
   try {
@@ -861,11 +934,13 @@ function safeLogMeta(meta) {
 }
 
 function writeLog(level, message, meta) {
+  const normalizedLevel = normalizeLogLevel(level, "INFO");
+  if (LOG_LEVELS[normalizedLevel] > LOG_LEVELS[loggerState.level]) return;
   const ts = new Date().toISOString();
   const msg = safeTrim(String(message || ""), 4000);
-  const line = `[${ts}] [${level}] ${msg}${safeLogMeta(meta)}`;
+  const line = `[${ts}] [${normalizedLevel}] ${msg}${safeLogMeta(meta)}`;
 
-  if (level === "ERROR" || level === "WARN") process.stderr.write(`${line}\n`);
+  if (normalizedLevel === "ERROR" || normalizedLevel === "WARN") process.stderr.write(`${line}\n`);
   else process.stdout.write(`${line}\n`);
 
   if (!loggerState.enabled) return;
@@ -1212,8 +1287,10 @@ function runLegacyAction(action, payload = {}) {
   runNamedAction(action, payload);
 }
 
-async function runPowerShell(script, args = [], timeoutMs = 10000) {
-  const cmdArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script, ...args];
+async function runPowerShell(script, args = [], timeoutMs = 10000, options = {}) {
+  const cmdArgs = ["-NoProfile", "-ExecutionPolicy", "Bypass"];
+  if (options && options.sta === true) cmdArgs.push("-Sta");
+  cmdArgs.push("-Command", script, ...args);
   try {
     const result = await execFileAsync("powershell.exe", cmdArgs, { windowsHide: true, timeout: timeoutMs });
     return result.stdout.trim();
@@ -1430,25 +1507,30 @@ function sanitizeCustomTile(input, existing) {
 async function browsePath(kind, title) {
   const useKind = kind === "folder" ? "folder" : "file";
   const prompt = String(title || (useKind === "folder" ? "Ordner waehlen" : "Datei waehlen"));
+  const promptLit = toPowerShellSingleQuoted(prompt);
 
   if (useKind === "folder") {
     const script = [
+      "$ErrorActionPreference = 'Stop'",
+      "if (-not [Environment]::UserInteractive) { throw 'not interactive desktop' }",
       "Add-Type -AssemblyName System.Windows.Forms",
       "$d = New-Object System.Windows.Forms.FolderBrowserDialog",
-      "$d.Description = $args[0]",
+      `$d.Description = ${promptLit}`,
       "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $d.SelectedPath }"
     ].join("; ");
-    return runPowerShell(script, [prompt], 120000);
+    return runPowerShell(script, [], 15000, { sta: true });
   }
 
   const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "if (-not [Environment]::UserInteractive) { throw 'not interactive desktop' }",
     "Add-Type -AssemblyName System.Windows.Forms",
     "$d = New-Object System.Windows.Forms.OpenFileDialog",
-    "$d.Title = $args[0]",
+    `$d.Title = ${promptLit}`,
     "$d.Filter = 'Programme (*.exe;*.lnk)|*.exe;*.lnk|Alle Dateien (*.*)|*.*'",
     "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $d.FileName }"
   ].join("; ");
-  return runPowerShell(script, [prompt], 120000);
+  return runPowerShell(script, [], 15000, { sta: true });
 }
 
 function normalizeBrowseFailure(error) {
@@ -1462,18 +1544,23 @@ function normalizeBrowseFailure(error) {
     .replace(/\r?\n+/g, " ")
     .trim();
 
-  if (/single thread apartment|sta|showdialog/i.test(raw)) {
-    return "Datei-Dialog nicht verfuegbar (kein interaktiver Desktop/STA). Pfad bitte manuell eintragen.";
-  }
   if (/timed out|timeout|etimedout/i.test(raw)) {
     return "Datei-Dialog nicht verfuegbar oder wurde geschlossen. Pfad bitte manuell eintragen.";
   }
   if (/access is denied|zugriff verweigert/i.test(raw)) {
     return "Datei-Dialog blockiert (Zugriff verweigert). Pfad bitte manuell eintragen.";
   }
+  if (/not interactive desktop|single thread apartment|apartmentstate/i.test(raw)) {
+    return "Datei-Dialog nicht verfuegbar (kein interaktiver Desktop/STA). Pfad bitte manuell eintragen.";
+  }
   if (!raw) return "Datei-Dialog nicht verfuegbar. Pfad bitte manuell eintragen.";
   return `Datei-Dialog fehlgeschlagen. Pfad bitte manuell eintragen. (${safeTrim(raw, 220)})`;
 }
+
+function toPowerShellSingleQuoted(value) {
+  return `'${String(value || "").replace(/'/g, "''")}'`;
+}
+
 const app = express();
 app.disable("x-powered-by");
 app.use(setSecurityHeaders);
@@ -1627,7 +1714,9 @@ app.get("/api/settings", requireToken, rateLimit, (req, res) => {
     logging: {
       enabled: config.logging?.enabled !== false,
       dir: resolveLogsDir(config.logging || {}),
-      maxFiles: Math.max(3, Math.min(90, Number(config.logging?.maxFiles) || 14))
+      maxFiles: Math.max(3, Math.min(90, Number(config.logging?.maxFiles) || 14)),
+      level: normalizeLogLevel(config.logging?.level, "INFO"),
+      effectiveLevel: loggerState.level
     }
   });
 });
@@ -1682,11 +1771,13 @@ app.post("/api/settings/logging", requireToken, rateLimit, (req, res) => {
     const requestedDir = typeof body.dir === "string" ? unquoteWrapped(body.dir) : "";
     const expandedDir = requestedDir ? expandEnv(assertSafeInput(requestedDir, "dir", MAX_PATH_LEN)) : "";
     const maxFiles = Math.max(3, Math.min(90, Number(body.maxFiles) || config.logging?.maxFiles || 14));
+    const level = normalizeLogLevel(body.level, config.logging?.level || "INFO");
 
     config.logging = {
       enabled,
       dir: expandedDir,
-      maxFiles
+      maxFiles,
+      level
     };
     applyLoggingConfig(config);
     if (!persistConfigSafe()) return res.status(500).json({ ok: false, error: "config write failed" });
@@ -1695,7 +1786,9 @@ app.post("/api/settings/logging", requireToken, rateLimit, (req, res) => {
       logging: {
         enabled: config.logging.enabled,
         dir: resolveLogsDir(config.logging),
-        maxFiles: config.logging.maxFiles
+        maxFiles: config.logging.maxFiles,
+        level: normalizeLogLevel(config.logging.level, "INFO"),
+        effectiveLevel: loggerState.level
       }
     });
   } catch (error) {
@@ -1773,6 +1866,7 @@ app.get("/api/logs/recent", requireToken, rateLimit, (req, res) => {
       lines: data,
       logDir: loggerState.dir,
       loggingEnabled: loggerState.enabled,
+      loggingLevel: loggerState.level,
       ts: Date.now()
     });
   } catch (error) {
