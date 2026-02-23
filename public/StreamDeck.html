@@ -122,6 +122,16 @@
       cursor: pointer;
       min-height: 42px;
     }
+    .btn:focus-visible,
+    .tab:focus-visible,
+    .tile:focus-visible,
+    .search input:focus-visible,
+    .quickProgram input:focus-visible,
+    .row input:focus-visible,
+    .row select:focus-visible {
+      outline: 2px solid rgba(93, 216, 255, 0.85);
+      outline-offset: 2px;
+    }
 
     .btn.primary {
       border-color: rgba(93, 216, 255, 0.62);
@@ -245,6 +255,7 @@
     }
 
     .tile {
+      --typeTint: rgba(93, 216, 255, 0.45);
       border: 1px solid var(--line);
       border-radius: 16px;
       background: linear-gradient(180deg, rgba(233, 245, 255, 0.18), rgba(177, 214, 246, 0.08));
@@ -261,6 +272,21 @@
       box-shadow: 0 10px 24px rgba(0,0,0,.26);
       transition: transform .1s ease, border-color .1s ease;
     }
+    .tile::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 10px;
+      bottom: 10px;
+      width: 4px;
+      border-radius: 0 999px 999px 0;
+      background: linear-gradient(180deg, rgba(255,255,255,.2), var(--typeTint));
+    }
+    .tile[data-type="app"] { --typeTint: rgba(34, 211, 238, 0.8); }
+    .tile[data-type="folder"] { --typeTint: rgba(251, 191, 36, 0.82); }
+    .tile[data-type="url"] { --typeTint: rgba(59, 130, 246, 0.82); }
+    .tile[data-type="protocol"] { --typeTint: rgba(192, 132, 252, 0.82); }
+    .tile[data-type="action"] { --typeTint: rgba(16, 185, 129, 0.82); }
 
     .tile:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.32); }
     .tile:active { transform: scale(.99); }
@@ -288,6 +314,41 @@
     .meta strong {
       display: block;
       font-size: 14px;
+    }
+
+    .meta {
+      min-width: 0;
+    }
+
+    .metaTop {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .metaTop strong {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .typePill {
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 999px;
+      padding: 2px 6px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      color: rgba(233, 246, 255, 0.9);
+      background: rgba(2, 10, 17, 0.46);
+      white-space: nowrap;
+      flex: 0 0 auto;
+      max-width: 72px;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .meta span {
@@ -482,6 +543,11 @@
       .search { min-width: 100%; }
       .tile { min-height: 92px; }
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+      .tile:hover { transform: none; }
+    }
   </style>
 </head>
 <body>
@@ -505,6 +571,7 @@
             </div>
 
             <button class="btn primary" id="btnAdd" type="button">+ Tile</button>
+            <button class="btn" id="btnShortcuts" type="button" title="Tastaturkuerzel anzeigen">Shortcuts</button>
             <button class="btn" id="btnSettings" type="button">Einstellungen</button>
           </div>
         </div>
@@ -599,8 +666,12 @@
         <option value="emoji">Icon: Emoji</option>
         <option value="image">Icon: Bilddatei</option>
       </select>
-      <input id="addIconEmoji" placeholder="Emoji, z.B. 🚀" maxlength="4" />
+      <input id="addIconEmoji" placeholder="Emoji, z.B. 🚀" maxlength="8" />
       <input id="addIconFile" type="file" accept="image/*" />
+    </div>
+    <div class="row" id="rowIconPresets">
+      <select id="addIconPreset"></select>
+      <button class="btn" id="addIconPresetApply" type="button">Icon uebernehmen</button>
     </div>
 
     <div class="rowActions">
@@ -686,6 +757,17 @@
       <pre class="logView" id="logView"></pre>
     </div>
 
+    <div class="setGroup">
+      <div class="dlgTitle" style="font-size: 14px;">Konfiguration (Backup / Import)</div>
+      <div class="dlgHint">Exportiert bzw. importiert die komplette Konfiguration inkl. Profile/Tiles. Beim Import bleibt der aktuelle Token standardmaessig erhalten.</div>
+      <div class="setButtons">
+        <button class="btn" id="cfgExport" type="button">Config exportieren</button>
+        <button class="btn warn" id="cfgImport" type="button">Config importieren</button>
+      </div>
+      <input id="cfgImportFile" type="file" accept=".json,application/json" hidden />
+      <div class="logMeta" id="cfgMeta">Noch kein Import/Export ausgefuehrt.</div>
+    </div>
+
     <div class="rowActions">
       <button class="btn" id="settingsClose" type="button">Schliessen</button>
     </div>
@@ -699,7 +781,7 @@
         .catch(() => {});
     }
 
-    const CLIENT_BUILD = "2026-02-22.4";
+    const CLIENT_BUILD = "2026-02-23.2";
     const LS = {
       token: "sd_token",
       profile: "sd_profile",
@@ -708,6 +790,37 @@
       recent: "sd_recent",
       hidden: "sd_hidden"
     };
+    const ICON_PRESETS = Object.freeze([
+      { id: "app-dev", emoji: "💻", label: "Editor / Entwicklung" },
+      { id: "app-terminal", emoji: "🖥️", label: "Terminal / Konsole" },
+      { id: "app-game", emoji: "🎮", label: "Gaming" },
+      { id: "app-stream", emoji: "🎬", label: "Streaming / Video" },
+      { id: "app-audio", emoji: "🎵", label: "Audio / Musik" },
+      { id: "app-browser", emoji: "🌐", label: "Browser / Internet" },
+      { id: "app-tools", emoji: "🛠️", label: "Tools / Utility" },
+      { id: "app-note", emoji: "🧠", label: "Notizen / Wissen" },
+      { id: "folder-main", emoji: "📁", label: "Ordner" },
+      { id: "folder-archive", emoji: "🗂️", label: "Ablage / Archiv" },
+      { id: "folder-media", emoji: "🖼️", label: "Medien" },
+      { id: "folder-download", emoji: "📥", label: "Download" },
+      { id: "url-site", emoji: "🌍", label: "Webseite" },
+      { id: "url-docs", emoji: "📚", label: "Doku / Wiki" },
+      { id: "url-shop", emoji: "🛒", label: "Shop" },
+      { id: "url-news", emoji: "📰", label: "News" },
+      { id: "protocol-chat", emoji: "💬", label: "Chat / Messenger" },
+      { id: "protocol-mail", emoji: "✉️", label: "Mail" },
+      { id: "protocol-call", emoji: "📞", label: "Call / Voice" },
+      { id: "action-fast", emoji: "⚡", label: "Aktion schnell" },
+      { id: "action-system", emoji: "⚙️", label: "System" },
+      { id: "action-script", emoji: "🧰", label: "Skript / Automation" }
+    ]);
+    const ICON_PRESET_BY_TYPE = Object.freeze({
+      app: ["app-dev", "app-terminal", "app-game", "app-stream", "app-tools"],
+      folder: ["folder-main", "folder-archive", "folder-media", "folder-download"],
+      url: ["url-site", "url-docs", "url-shop", "url-news"],
+      protocol: ["protocol-chat", "protocol-mail", "protocol-call"],
+      action: ["action-fast", "action-system", "action-script"]
+    });
 
     function loadStoredArray(key, maxItems = 100) {
       try {
@@ -765,6 +878,7 @@
       dotWow: document.getElementById("dotWow"),
 
       btnAdd: document.getElementById("btnAdd"),
+      btnShortcuts: document.getElementById("btnShortcuts"),
       btnSettings: document.getElementById("btnSettings"),
       quickProgramInput: document.getElementById("quickProgramInput"),
       quickProgramAdd: document.getElementById("quickProgramAdd"),
@@ -795,6 +909,9 @@
       addIconMode: document.getElementById("addIconMode"),
       addIconEmoji: document.getElementById("addIconEmoji"),
       addIconFile: document.getElementById("addIconFile"),
+      rowIconPresets: document.getElementById("rowIconPresets"),
+      addIconPreset: document.getElementById("addIconPreset"),
+      addIconPresetApply: document.getElementById("addIconPresetApply"),
       addCancel: document.getElementById("addCancel"),
       addSave: document.getElementById("addSave"),
 
@@ -825,6 +942,10 @@
       logSave: document.getElementById("logSave"),
       logMeta: document.getElementById("logMeta"),
       logView: document.getElementById("logView"),
+      cfgExport: document.getElementById("cfgExport"),
+      cfgImport: document.getElementById("cfgImport"),
+      cfgImportFile: document.getElementById("cfgImportFile"),
+      cfgMeta: document.getElementById("cfgMeta"),
       settingsClose: document.getElementById("settingsClose")
     };
 
@@ -877,6 +998,34 @@
       return data;
     }
 
+    function formatExportFileName(prefix = "streamdeck_remote-config") {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`;
+      return `${prefix}-${stamp}.json`;
+    }
+
+    function downloadJsonFile(fileName, value) {
+      const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } finally {
+        setTimeout(() => URL.revokeObjectURL(url), 2500);
+      }
+    }
+
+    function isEditableElement(node) {
+      if (!(node instanceof HTMLElement)) return false;
+      const tag = node.tagName;
+      return node.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    }
+
     function profileById(id) {
       return state.profiles.find((p) => p.id === id) || null;
     }
@@ -926,6 +1075,100 @@
       if (!value) return "";
       const base = value.split(/[\\/]/).pop() || value;
       return base.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ").trim();
+    }
+
+    function iconPresetById(id) {
+      const key = String(id || "").trim();
+      return ICON_PRESETS.find((x) => x.id === key) || null;
+    }
+
+    function renderIconPresetMenu(tileType) {
+      const type = String(tileType || "").trim().toLowerCase();
+      const recommendedIds = ICON_PRESET_BY_TYPE[type] || [];
+      const recommendedSet = new Set(recommendedIds);
+      el.addIconPreset.textContent = "";
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Icon-Bibliothek: Bitte waehlen...";
+      el.addIconPreset.appendChild(placeholder);
+
+      if (recommendedIds.length) {
+        const recommendedGroup = document.createElement("optgroup");
+        recommendedGroup.label = "Empfohlen";
+        for (const presetId of recommendedIds) {
+          const preset = iconPresetById(presetId);
+          if (!preset) continue;
+          const opt = document.createElement("option");
+          opt.value = preset.emoji;
+          opt.textContent = `${preset.emoji} ${preset.label}`;
+          recommendedGroup.appendChild(opt);
+        }
+        if (recommendedGroup.children.length) el.addIconPreset.appendChild(recommendedGroup);
+      }
+
+      const allGroup = document.createElement("optgroup");
+      allGroup.label = "Alle Icons";
+      for (const preset of ICON_PRESETS) {
+        if (recommendedSet.has(preset.id)) continue;
+        const opt = document.createElement("option");
+        opt.value = preset.emoji;
+        opt.textContent = `${preset.emoji} ${preset.label}`;
+        allGroup.appendChild(opt);
+      }
+      if (allGroup.children.length) el.addIconPreset.appendChild(allGroup);
+    }
+
+    function applyIconPreset(emoji) {
+      const icon = String(emoji || "").trim();
+      if (!icon) throw new Error("Bitte zuerst ein Icon aus der Bibliothek waehlen");
+      el.addIconMode.value = "emoji";
+      el.addIconEmoji.value = icon;
+      updateAddFormVisibility();
+    }
+
+    function tileTypeLabel(type) {
+      const key = String(type || "").toLowerCase();
+      if (key === "app") return "APP";
+      if (key === "folder") return "ORDNER";
+      if (key === "url") return "WEB";
+      if (key === "protocol") return "PROTOKOLL";
+      if (key === "action") return "AKTION";
+      return key ? key.toUpperCase() : "TILE";
+    }
+
+    function buildTileButtonNode(tile) {
+      const btn = document.createElement("button");
+      btn.className = "tile";
+      btn.type = "button";
+      btn.dataset.id = tile.id;
+      btn.dataset.type = String(tile.type || "").toLowerCase();
+      btn.setAttribute("aria-label", tile.subtitle ? `${tile.label}, ${tile.subtitle}` : tile.label);
+
+      btn.appendChild(tileIconNode(tile));
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const top = document.createElement("div");
+      top.className = "metaTop";
+
+      const title = document.createElement("strong");
+      title.textContent = tile.label;
+      top.appendChild(title);
+
+      const type = document.createElement("span");
+      type.className = "typePill";
+      type.textContent = tileTypeLabel(tile.type);
+      type.title = `Tile-Typ: ${tile.type || "unknown"}`;
+      top.appendChild(type);
+
+      const sub = document.createElement("span");
+      sub.textContent = tile.subtitle || tile.type;
+
+      meta.appendChild(top);
+      meta.appendChild(sub);
+      btn.appendChild(meta);
+      return btn;
     }
 
     function unquoteInput(value) {
@@ -1107,6 +1350,7 @@
 
       el.logMeta.textContent = msg;
       el.logView.textContent = "";
+      el.cfgMeta.textContent = msg;
       el.logEnabled.value = "true";
       el.logLevel.value = "INFO";
       el.logMaxFiles.value = "14";
@@ -1119,6 +1363,9 @@
       el.logMaxFiles.disabled = true;
       el.logDir.disabled = true;
       el.logLines.disabled = true;
+      el.cfgExport.disabled = true;
+      el.cfgImport.disabled = true;
+      el.cfgImportFile.disabled = true;
     }
 
     function setLoggingUi(logging) {
@@ -1135,6 +1382,9 @@
       el.logMaxFiles.disabled = false;
       el.logDir.disabled = false;
       el.logLines.disabled = false;
+      el.cfgExport.disabled = false;
+      el.cfgImport.disabled = false;
+      el.cfgImportFile.disabled = false;
     }
 
     async function loadRecentLogs() {
@@ -1229,23 +1479,7 @@
       el.grid.textContent = "";
 
       for (const tile of tiles) {
-        const btn = document.createElement("button");
-        btn.className = "tile";
-        btn.type = "button";
-        btn.dataset.id = tile.id;
-        btn.setAttribute("aria-label", tile.subtitle ? `${tile.label}, ${tile.subtitle}` : tile.label);
-
-        btn.appendChild(tileIconNode(tile));
-
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        const title = document.createElement("strong");
-        title.textContent = tile.label;
-        const sub = document.createElement("span");
-        sub.textContent = tile.subtitle || tile.type;
-        meta.appendChild(title);
-        meta.appendChild(sub);
-        btn.appendChild(meta);
+        const btn = buildTileButtonNode(tile);
 
         if (state.favorites.has(tile.id)) {
           const fav = document.createElement("div");
@@ -1267,23 +1501,7 @@
       } else {
         el.recentSection.hidden = false;
         for (const tile of recentTiles) {
-          const node = document.createElement("button");
-          node.className = "tile";
-          node.type = "button";
-          node.dataset.id = tile.id;
-          node.setAttribute("aria-label", tile.subtitle ? `${tile.label}, ${tile.subtitle}` : tile.label);
-          node.appendChild(tileIconNode(tile));
-
-          const m = document.createElement("div");
-          m.className = "meta";
-          const t = document.createElement("strong");
-          t.textContent = tile.label;
-          const s = document.createElement("span");
-          s.textContent = tile.subtitle || tile.type;
-          m.appendChild(t);
-          m.appendChild(s);
-          node.appendChild(m);
-
+          const node = buildTileButtonNode(tile);
           el.recentGrid.appendChild(node);
         }
       }
@@ -1515,6 +1733,8 @@
       el.addIconMode.value = "auto";
       el.addIconEmoji.value = "";
       el.addIconFile.value = "";
+      renderIconPresetMenu("app");
+      el.addIconPreset.value = "";
       el.addProgramHints.textContent = "";
       el.rowProgramHints.hidden = true;
       state.editingTileId = "";
@@ -1546,6 +1766,11 @@
         el.addStartIn.value = details.startIn || "";
         el.addIconMode.value = details.iconMode || "emoji";
         el.addIconEmoji.value = details.iconMode === "emoji" ? (details.icon || "") : "";
+        renderIconPresetMenu(details.type || "app");
+        if (details.iconMode === "emoji" && details.icon) {
+          const hasOption = Array.from(el.addIconPreset.options).some((opt) => opt.value === details.icon);
+          if (hasOption) el.addIconPreset.value = details.icon;
+        }
       }
 
       updateAddFormVisibility();
@@ -1753,6 +1978,13 @@
         }
 
         setLoggingUi(settings.logging || {});
+        const hasConfigTransfer = settings.features?.settingsImportExport === true;
+        el.cfgExport.disabled = !hasConfigTransfer;
+        el.cfgImport.disabled = !hasConfigTransfer;
+        el.cfgImportFile.disabled = !hasConfigTransfer;
+        if (!hasConfigTransfer) {
+          el.cfgMeta.textContent = "Config-Import/Export ist auf diesem Server nicht verfuegbar.";
+        }
         try {
           await loadRecentLogs();
         } catch (error) {
@@ -1767,6 +1999,72 @@
         el.launchersBox.appendChild(msg);
         el.logMeta.textContent = `Konnte Logs nicht laden: ${error.message || String(error)}`;
         el.logView.textContent = "";
+      }
+    }
+
+    async function exportConfigSnapshot() {
+      try {
+        const data = await api("/api/settings/export");
+        if (!data || !data.config) throw new Error("Keine Config-Daten vom Server erhalten");
+        const fileName = formatExportFileName("streamdeck_remote-config");
+        downloadJsonFile(fileName, data.config);
+        el.cfgMeta.textContent = `Export erfolgreich: ${fileName}`;
+      } catch (error) {
+        if (isHttp404Error(error)) {
+          showLegacyServerHint("/api/settings/export");
+          throw new Error("Config-Export-Endpunkt fehlt auf dem laufenden Server. Bitte Server neu starten.");
+        }
+        throw error;
+      }
+    }
+
+    function readJsonFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const text = String(reader.result || "");
+            const parsed = JSON.parse(text);
+            resolve(parsed);
+          } catch (error) {
+            reject(new Error(`JSON ungültig: ${error.message || String(error)}`));
+          }
+        };
+        reader.onerror = () => reject(new Error("Datei konnte nicht gelesen werden"));
+        reader.readAsText(file, "utf-8");
+      });
+    }
+
+    async function importConfigSnapshotFromFile(file) {
+      if (!file) throw new Error("Datei fehlt");
+      const parsed = await readJsonFile(file);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("Datei muss ein JSON-Objekt enthalten");
+      }
+
+      const confirmed = window.confirm("Import ersetzt Profile/Tiles/Settings. Fortfahren?");
+      if (!confirmed) return false;
+
+      try {
+        const result = await api("/api/settings/import", {
+          method: "POST",
+          body: { config: parsed, keepCurrentToken: true }
+        });
+        await loadBootstrap();
+        await pollStatus();
+        await refreshSettingsContent();
+        const summary = result?.summary || {};
+        el.cfgMeta.textContent = `Import erfolgreich: ${summary.profiles || 0} Profile, ${summary.tiles || 0} Tiles`;
+        if (result?.restartRequired) {
+          showToast("Import gespeichert. Host/Port wurden geaendert - bitte Server neu starten.");
+        }
+        return true;
+      } catch (error) {
+        if (isHttp404Error(error)) {
+          showLegacyServerHint("/api/settings/import");
+          throw new Error("Config-Import-Endpunkt fehlt auf dem laufenden Server. Bitte Server neu starten.");
+        }
+        throw error;
       }
     }
 
@@ -1854,6 +2152,62 @@
       openTileMenuById(btn.dataset.id);
     });
 
+    document.addEventListener("keydown", async (event) => {
+      const key = String(event.key || "");
+      const keyLower = key.toLowerCase();
+      const meta = event.metaKey || event.ctrlKey;
+      const editable = isEditableElement(event.target);
+
+      if (meta && keyLower === "k") {
+        event.preventDefault();
+        el.q.focus();
+        el.q.select();
+        return;
+      }
+
+      if (meta && key === ",") {
+        event.preventDefault();
+        await openSettingsDialog();
+        return;
+      }
+
+      if (meta && event.shiftKey && keyLower === "a") {
+        event.preventDefault();
+        if (!state.token) {
+          showToast("Bitte zuerst Token setzen");
+          await openSettingsDialog();
+          return;
+        }
+        try {
+          await openAddDialog();
+        } catch (error) {
+          showToast(`Dialog konnte nicht geoeffnet werden: ${error.message || String(error)}`);
+        }
+        return;
+      }
+
+      const anyDialogOpen = el.dlgAdd.open || el.dlgSettings.open || el.dlgTile.open;
+      if (!editable && !anyDialogOpen && event.altKey && !meta && !event.shiftKey && /^[1-9]$/.test(key)) {
+        event.preventDefault();
+        const idx = Number(key) - 1;
+        const visible = currentTiles();
+        const tile = visible[idx];
+        if (tile) runTile(tile.id);
+        return;
+      }
+
+      if (key === "Escape") {
+        if (el.dlgTile.open) {
+          el.dlgTile.close();
+          return;
+        }
+        if (el.dlgAdd.open) {
+          el.dlgAdd.close();
+          return;
+        }
+      }
+    });
+
     el.btnAdd.addEventListener("click", () => {
       if (!state.token) {
         showToast("Bitte zuerst Token setzen");
@@ -1886,6 +2240,8 @@
     });
     el.addType.addEventListener("change", async () => {
       updateAddFormVisibility();
+      renderIconPresetMenu(el.addType.value);
+      el.addIconPreset.value = "";
       if (el.addType.value === "app") {
         try {
           const programs = await fetchPrograms(el.addTarget.value, 10);
@@ -1896,6 +2252,22 @@
       }
     });
     el.addIconMode.addEventListener("change", updateAddFormVisibility);
+    el.addIconPresetApply.addEventListener("click", () => {
+      try {
+        applyIconPreset(el.addIconPreset.value);
+        showToast(`Icon gesetzt: ${el.addIconPreset.value}`);
+      } catch (error) {
+        showToast(error.message || String(error));
+      }
+    });
+    el.addIconPreset.addEventListener("change", () => {
+      if (!el.addIconPreset.value) return;
+      try {
+        applyIconPreset(el.addIconPreset.value);
+      } catch {
+        // no-op
+      }
+    });
 
     el.addBrowse.addEventListener("click", async () => {
       const kind = el.addBrowse.dataset.kind || "file";
@@ -2050,6 +2422,9 @@
     });
 
     el.btnSettings.addEventListener("click", openSettingsDialog);
+    el.btnShortcuts.addEventListener("click", () => {
+      showToast("Shortcuts: Ctrl+K Suche | Ctrl+Shift+A Neues Tile | Ctrl+, Einstellungen | Alt+1..9 Tile starten");
+    });
     el.settingsClose.addEventListener("click", () => el.dlgSettings.close());
 
     el.saveToken.addEventListener("click", async () => {
@@ -2154,6 +2529,37 @@
         showToast("Logging gespeichert");
       } catch (error) {
         showToast(`Logging speichern fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.cfgExport.addEventListener("click", async () => {
+      try {
+        await exportConfigSnapshot();
+        showToast("Config exportiert");
+      } catch (error) {
+        showToast(`Config-Export fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.cfgImport.addEventListener("click", () => {
+      if (!state.token) {
+        showToast("Bitte zuerst Token setzen");
+        return;
+      }
+      el.cfgImportFile.value = "";
+      el.cfgImportFile.click();
+    });
+
+    el.cfgImportFile.addEventListener("change", async () => {
+      const file = el.cfgImportFile.files && el.cfgImportFile.files[0];
+      if (!file) return;
+      try {
+        const changed = await importConfigSnapshotFromFile(file);
+        if (changed) showToast("Config importiert");
+      } catch (error) {
+        showToast(`Config-Import fehlgeschlagen: ${error.message || String(error)}`);
+      } finally {
+        el.cfgImportFile.value = "";
       }
     });
 

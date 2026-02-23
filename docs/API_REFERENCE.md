@@ -26,6 +26,7 @@ Example response:
   "features": {
     "logsRecent": true,
     "settingsLogging": true,
+    "settingsImportExport": true,
     "programResolve": true,
     "tileDetails": true,
     "dryRun": false,
@@ -81,8 +82,37 @@ Update file logging settings.
 Request:
 
 ```json
-{ "enabled": true, "dir": "", "maxFiles": 14 }
+{ "enabled": true, "dir": "", "maxFiles": 14, "level": "INFO" }
 ```
+
+`level` supports: `ERROR`, `WARN`, `INFO`, `DEBUG`.
+
+## GET /api/settings/export
+Export current full config as JSON payload.
+
+Response:
+
+```json
+{
+  "ok": true,
+  "exportedAt": "2026-02-23T00:00:00.000Z",
+  "config": { "...": "full config object" }
+}
+```
+
+## POST /api/settings/import
+Import full config object.
+
+Request:
+
+```json
+{
+  "keepCurrentToken": true,
+  "config": { "...": "full config object" }
+}
+```
+
+`keepCurrentToken` defaults to `true`.
 
 ## POST /api/settings/autodetect
 Autodetect launcher paths.

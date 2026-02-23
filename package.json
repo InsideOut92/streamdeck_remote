@@ -10,7 +10,9 @@
     "dev": "node server.js",
     "test": "node --test tests/*.test.js",
     "build:win": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-win.ps1",
-    "build": "npm run build:win"
+    "build": "npm run build:win",
+    "smoke:exe": "node scripts/smoke-exe.js",
+    "release:check": "npm test && npm run build:win && npm run smoke:exe"
   },
   "dependencies": {
     "express": "^5.2.1"

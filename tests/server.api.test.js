@@ -160,11 +160,31 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     assert.equal(health.body?.features?.dryRun, true);
     assert.equal(health.body?.features?.tileDetails, true);
     assert.equal(health.body?.features?.launcherAutodetect, false);
+    assert.equal(health.body?.features?.settingsImportExport, true);
 
     const settings = await requestJson(baseUrl, token, "/api/settings");
     assert.equal(settings.status, 200);
     assert.equal(settings.body?.ok, true);
     assert.equal(typeof settings.body?.wow?.processName, "string");
+
+    const exported = await requestJson(baseUrl, token, "/api/settings/export");
+    assert.equal(exported.status, 200);
+    assert.equal(exported.body?.ok, true);
+    assert.equal(typeof exported.body?.config?.token, "string");
+
+    const imported = await requestJson(baseUrl, token, "/api/settings/import", {
+      method: "POST",
+      body: {
+        keepCurrentToken: true,
+        config: {
+          ...exported.body.config,
+          rateLimit: { windowMs: 1500, max: 120 }
+        }
+      }
+    });
+    assert.equal(imported.status, 200);
+    assert.equal(imported.body?.ok, true);
+    assert.equal(imported.body?.keepCurrentToken, true);
 
     const loggingUpdate = await requestJson(baseUrl, token, "/api/settings/logging", {
       method: "POST",

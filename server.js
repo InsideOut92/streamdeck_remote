@@ -47,6 +47,7 @@ const DISABLE_AUTODETECT = isTruthyEnv(process.env.STREAMDECK_DISABLE_AUTODETECT
 const API_FEATURES = Object.freeze({
   logsRecent: true,
   settingsLogging: true,
+  settingsImportExport: true,
   programResolve: true,
   tileDetails: true,
   dryRun: DRY_RUN,
@@ -1007,6 +1008,14 @@ function writeJsonAtomic(filePath, value) {
   fs.renameSync(tmpPath, filePath);
 }
 
+function cloneConfigData(value) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return {};
+  }
+}
+
 function readConfigFromPath(filePath) {
   const raw = parseJsonFile(filePath);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -1350,24 +1359,47 @@ async function extractIconDataUrl(filePath) {
   const key = p.toLowerCase();
   if (iconCache.has(key)) return iconCache.get(key);
 
+  const pathLit = toPowerShellSingleQuoted(p);
   const script = [
-    "$p = $args[0]",
+    "$ErrorActionPreference = 'Stop'",
+    `$p = ${pathLit}`,
     "Add-Type -AssemblyName System.Drawing",
-    "if (-not (Test-Path $p)) { exit 2 }",
-    "$icon = [System.Drawing.Icon]::ExtractAssociatedIcon($p)",
-    "if ($null -eq $icon) { exit 3 }",
-    "$bmp = New-Object System.Drawing.Bitmap 64,64",
-    "$g = [System.Drawing.Graphics]::FromImage($bmp)",
-    "$src = $icon.ToBitmap()",
-    "$g.DrawImage($src, 0, 0, 64, 64)",
-    "$g.Dispose()",
-    "$ms = New-Object System.IO.MemoryStream",
-    "$bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)",
-    "[Convert]::ToBase64String($ms.ToArray())"
+    "if (-not (Test-Path -LiteralPath $p)) { exit 2 }",
+    "function Convert-IconToBase64([System.Drawing.Icon]$icon) {",
+    "  if ($null -eq $icon) { return '' }",
+    "  $bmp = New-Object System.Drawing.Bitmap 64,64",
+    "  $g = [System.Drawing.Graphics]::FromImage($bmp)",
+    "  $g.Clear([System.Drawing.Color]::Transparent)",
+    "  $src = $icon.ToBitmap()",
+    "  $g.DrawImage($src, 0, 0, 64, 64)",
+    "  $g.Dispose()",
+    "  $src.Dispose()",
+    "  $ms = New-Object System.IO.MemoryStream",
+    "  $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)",
+    "  $bmp.Dispose()",
+    "  $icon.Dispose()",
+    "  $result = [Convert]::ToBase64String($ms.ToArray())",
+    "  $ms.Dispose()",
+    "  return $result",
+    "}",
+    "$icon = $null",
+    "try { $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($p) } catch {}",
+    "if ($null -eq $icon -and [System.IO.Path]::GetExtension($p).ToLowerInvariant() -eq '.lnk') {",
+    "  try {",
+    "    $shell = New-Object -ComObject WScript.Shell",
+    "    $shortcut = $shell.CreateShortcut($p)",
+    "    if ($shortcut.TargetPath -and (Test-Path -LiteralPath $shortcut.TargetPath)) {",
+    "      $icon = [System.Drawing.Icon]::ExtractAssociatedIcon($shortcut.TargetPath)",
+    "    }",
+    "  } catch {}",
+    "}",
+    "$b64 = Convert-IconToBase64 $icon",
+    "if (-not $b64) { exit 3 }",
+    "$b64"
   ].join("; ");
 
   try {
-    const b64 = await runPowerShell(script, [p], 4000);
+    const b64 = await runPowerShell(script, [], 5000);
     if (!b64) return "";
     const data = `data:image/png;base64,${b64}`;
     iconCache.set(key, data);
@@ -1382,6 +1414,16 @@ function tileIsVisible(tile, wowRunning) {
   if (tile.showIf === "wowRunning") return wowRunning === true;
   if (tile.showIf === "wowNotRunning") return wowRunning === false;
   return true;
+}
+
+function defaultTileEmoji(type) {
+  const normalized = String(type || "").trim().toLowerCase();
+  if (normalized === "app") return "🖥️";
+  if (normalized === "folder") return "📁";
+  if (normalized === "url") return "🌐";
+  if (normalized === "protocol") return "🔗";
+  if (normalized === "action") return "⚡";
+  return "■";
 }
 
 async function buildClientTiles() {
@@ -1400,7 +1442,7 @@ async function buildClientTiles() {
       type: tile.type,
       builtin: Boolean(tile.builtin),
       iconMode: tile.iconMode || "emoji",
-      icon: tile.icon || "",
+      icon: tile.icon || defaultTileEmoji(tile.type),
       iconData: ""
     };
 
@@ -1789,6 +1831,54 @@ app.post("/api/settings/logging", requireToken, rateLimit, (req, res) => {
         maxFiles: config.logging.maxFiles,
         level: normalizeLogLevel(config.logging.level, "INFO"),
         effectiveLevel: loggerState.level
+      }
+    });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.get("/api/settings/export", requireToken, rateLimit, (req, res) => {
+  try {
+    const exported = mergeWithDefaults(cloneConfigData(config));
+    return res.json({
+      ok: true,
+      exportedAt: new Date().toISOString(),
+      config: exported
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/settings/import", requireToken, rateLimit, (req, res) => {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const incoming = body.config;
+    if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+      return res.status(400).json({ ok: false, error: "config object fehlt" });
+    }
+
+    const keepCurrentToken = body.keepCurrentToken !== false;
+    const previous = config;
+    const imported = mergeWithDefaults(cloneConfigData(incoming));
+    if (keepCurrentToken) imported.token = previous.token;
+
+    config = imported;
+    invalidateProgramIndexCache();
+    applyLoggingConfig(config);
+    if (!persistConfigSafe()) return res.status(500).json({ ok: false, error: "config write failed" });
+
+    const restartRequired = previous.host !== config.host || previous.port !== config.port;
+    return res.json({
+      ok: true,
+      importedAt: new Date().toISOString(),
+      restartRequired,
+      keepCurrentToken,
+      summary: {
+        profiles: Array.isArray(config.profiles) ? config.profiles.length : 0,
+        tiles: Array.isArray(config.tiles) ? config.tiles.length : 0,
+        launchers: config.launchers && typeof config.launchers === "object" ? Object.keys(config.launchers).length : 0
       }
     });
   } catch (error) {

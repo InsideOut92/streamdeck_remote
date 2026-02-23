@@ -12,10 +12,12 @@ Das Projekt kombiniert Profile, Unterseiten und serverseitig persistente Tiles, 
   - `protocol` (z. B. `discord://`)
   - `action` (vordefinierte Server-Aktionen)
 - Custom-Tiles anlegen, bearbeiten, loeschen.
+- Integrierte Icon-Bibliothek im Add-Dialog (empfohlene Icons je Tile-Typ).
 - Favoriten, zuletzt genutzt, lokale Ausblendung von Tiles.
 - Programmsuche + automatische Aufloesung von Programmnamen.
 - Launcher-Autodetect (abschaltbar per Env).
 - Dateibasierte Logs inkl. Rotation + API zum Abrufen der letzten Zeilen.
+- Vollstaendiger Config-Export/Import (Backup & Migration) direkt in der UI.
 - Sicherheitsbasis: Token-Auth (`X-Token`), Request-ID, Rate-Limit, Security-Header.
 
 ## Architektur in einem Satz
@@ -74,6 +76,14 @@ npm run build:win
 - `npm run dev`: Alias fuer `start`
 - `npm test`: API-Integrationstest
 - `npm run build:win`: Windows-EXE bauen
+- `npm run smoke:exe`: gebaute EXE lokal per API-Smoketest pruefen
+- `npm run release:check`: kompletter Release-Check (`test` + `build:win` + `smoke:exe`)
+
+## Tastatur-Shortcuts (UI)
+- `Ctrl+K`: Suche fokussieren
+- `Ctrl+Shift+A`: Add-Tile Dialog oeffnen
+- `Ctrl+,`: Einstellungen oeffnen
+- `Alt+1..9`: sichtbares Tile direkt starten
 
 ## Konfiguration
 ### Wo liegt die Config?
@@ -104,7 +114,8 @@ npm run build:win
 - `GET /api/status`
 - `GET /api/bootstrap`
 - `GET /api/settings`
-- `POST /api/settings/*` (launcher, wow, logging, autodetect, browse)
+- `POST /api/settings/*` (launcher, wow, logging, autodetect, browse, import)
+- `GET /api/settings/export`
 - `GET /api/programs`
 - `POST /api/programs/resolve`
 - `GET /api/logs/recent`
@@ -138,10 +149,14 @@ Alle API-Calls (ausser statische Dateien) erwarten Token via Header:
   - Pfad pruefen, ggf. in `Einstellungen -> Launcher` korrigieren.
 - Programmname wird nicht aufgeloest:
   - exakten Dateipfad verwenden oder Programmsuche in der UI nutzen.
+- Import geaendert, aber Server weiter unter alter Adresse:
+  - falls `host`/`port` importiert wurden, Server einmal neu starten.
 
 ## Dokumentation
 - API-Referenz:
   - `docs/API_REFERENCE.md`
 - Lernpfad (Schritt-fuer-Schritt zum Nachbauen):
   - `docs/LEHRPLAN_MANUELL_NACHSCHREIBEN.md`
+- Release-Checkliste:
+  - `docs/RELEASE_CHECKLIST.md`
 - Diese Doku ist bewusst in kleinen, aufeinander aufbauenden Schritten gehalten, damit Schueler das Projekt ohne KI nachbauen koennen.
