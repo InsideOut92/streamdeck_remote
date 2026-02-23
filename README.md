@@ -18,11 +18,23 @@ Das Projekt kombiniert Profile, Unterseiten und serverseitig persistente Tiles, 
 - Launcher-Autodetect (abschaltbar per Env).
 - Dateibasierte Logs inkl. Rotation + API zum Abrufen der letzten Zeilen.
 - Vollstaendiger Config-Export/Import (Backup & Migration) direkt in der UI.
+- Gaming-Profil mit eingebetteten Overlay-Unterseiten (kein neuer Browser-Tab):
+  - `Leistungs-Overlay` (CPU/RAM/Netz live)
+  - `CurseForge AddOn Manager` (AddOns aktivieren/deaktivieren, AddOns-Ordner oeffnen, CurseForge Start/Stop/Restart)
+- Streaming-Profil mit eingebettetem `Soundboard` (Touch Mixer):
+  - Voiceover-Soundboard mit 8 Touch-Pads (eigene Audio-Clips, Loop, Solo, Pad-Volume)
+  - Lokale Clip-Bibliothek direkt in der App (Import, Preview, Zuordnung, Loeschen)
+  - Pro-App Volume (+/-/Slider), Mute, Play/Pause
+  - Browser-/Youtube-Sessions werden auch ohne stabile PID via `sessionKey` steuerbar
+  - Spotify-Bereich (Open + Play/Pause + Mute + Volume)
 - Sicherheitsbasis: Token-Auth (`X-Token`), Request-ID, Rate-Limit, Security-Header.
 
 ## Architektur in einem Satz
 - `server.js`: API + Launch-Logik + Config/Logging.
 - `public/StreamDeck.html`: komplette UI (HTML/CSS/JS).
+- `public/Performance.html`: modernes Live-Overlay fuer Systemmetriken.
+- `public/CurseForge.html`: AddOn-Verwaltung fuer WoW AddOn-Ordner + CurseForge-App-Steuerung.
+- `public/Soundboard.html`: Voiceover-Pads + Audio-Mixer + Spotify Hub.
 - `config.json`: Laufzeitkonfiguration (lokal erzeugt, nicht versioniert).
 
 ## Voraussetzungen
@@ -59,16 +71,20 @@ npm start
 
 ## Von Clone zur EXE (Windows)
 1. Projekt klonen und `npm ci` ausfuehren (siehe oben).
-2. Build starten:
+2. Einfachster Weg (One-Click):
+```powershell
+.\build-exe.cmd
+```
+3. Alternativ per npm:
 ```bash
 npm run build:win
 ```
-3. Ergebnis:
+4. Ergebnis:
 `dist/streamdeck_remote.exe`
-4. EXE starten.
-5. Konfigurationsdatei liegt im EXE-Betrieb unter:
+5. EXE starten.
+6. Konfigurationsdatei liegt im EXE-Betrieb unter:
 `%APPDATA%/StreamDeckRemote/config.json`
-6. UI im Browser aufrufen:
+7. UI im Browser aufrufen:
 `http://127.0.0.1:8787/StreamDeck.html`
 
 ## Wichtige npm-Skripte
@@ -76,6 +92,7 @@ npm run build:win
 - `npm run dev`: Alias fuer `start`
 - `npm test`: API-Integrationstest
 - `npm run build:win`: Windows-EXE bauen
+- `npm run build:easy`: ruft den One-Click Builder auf (`build-exe.cmd`)
 - `npm run smoke:exe`: gebaute EXE lokal per API-Smoketest pruefen
 - `npm run release:check`: kompletter Release-Check (`test` + `build:win` + `smoke:exe`)
 
@@ -96,6 +113,7 @@ npm run build:win
 - `workspaceDir`
 - `rateLimit.windowMs`, `rateLimit.max`
 - `wow.processName`, `wow.folders.*`
+  - Hinweis: Default ist auf WoW Anniversary ausgelegt (`...\\World of Warcraft\\_anniversary_\\...`).
 - `logging.enabled`, `logging.dir`, `logging.maxFiles`, `logging.level` (`ERROR|WARN|INFO|DEBUG`)
 - `launchers.*` (serverseitige App-Pfade)
 
@@ -112,6 +130,19 @@ npm run build:win
 ## API (Kurzuebersicht)
 - `GET /api/health`
 - `GET /api/status`
+- `GET /api/audio/mixer`
+- `POST /api/audio/session/volume`
+- `POST /api/audio/session/mute`
+- `POST /api/audio/session/playpause`
+- `POST /api/audio/spotify/open`
+- `GET /api/curseforge/status`
+- `POST /api/curseforge/start`
+- `POST /api/curseforge/stop`
+- `POST /api/curseforge/restart`
+- `GET /api/system/metrics`
+- `GET /api/wow/addons`
+- `POST /api/wow/addons/toggle`
+- `POST /api/wow/addons/open-folder`
 - `GET /api/bootstrap`
 - `GET /api/settings`
 - `POST /api/settings/*` (launcher, wow, logging, autodetect, browse, import)

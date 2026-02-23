@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Streaming Soundboard</title>
+  <style>
+    :root {
+      --bg0:#060b13; --bg1:#0f1f31; --bg2:#14324d; --text:#ecf6ff; --muted:#bad0e4;
+      --line:rgba(190,220,255,.22); --card:rgba(10,20,32,.9); --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;color:var(--text);font-family:"Segoe UI Variable","Segoe UI",sans-serif;background:
+      radial-gradient(820px 500px at 6% -8%,rgba(56,189,248,.26),transparent 62%),
+      radial-gradient(760px 520px at 102% -6%,rgba(34,211,238,.18),transparent 58%),
+      linear-gradient(165deg,var(--bg0),var(--bg1) 50%,var(--bg2))}
+    .app{min-height:100vh;padding:12px}
+    .panel{border:1px solid var(--line);border-radius:22px;background:var(--card);overflow:hidden;min-height:calc(100vh - 24px);display:grid;grid-template-rows:auto 1fr}
+    .head{padding:12px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(140,204,255,.18),rgba(24,40,60,.34));display:grid;gap:10px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .title strong{display:block;font-size:20px}
+    .title span{font-size:12px;color:var(--muted)}
+    .chip{border:1px solid var(--line);border-radius:999px;background:rgba(0,0,0,.26);min-height:34px;padding:6px 10px;display:inline-flex;align-items:center;gap:8px;font-size:12px}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 3px rgba(245,158,11,.2)}
+    .dot.ok{background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.2)}
+    .dot.err{background:var(--err);box-shadow:0 0 0 3px rgba(239,68,68,.2)}
+    .body{padding:12px;overflow:auto;display:grid;gap:12px;align-content:start}
+    .card{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.04);overflow:hidden}
+    .cardHead{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:12px}
+    .cardBody{padding:12px;display:grid;gap:10px}
+    .meta{border:1px dashed rgba(255,255,255,.22);border-radius:12px;padding:9px 10px;color:var(--muted);font-size:12px;background:rgba(0,0,0,.18);flex:1;min-width:220px}
+    input,select,button{min-height:42px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.22);color:var(--text);font-size:13px;padding:8px 10px}
+    button{cursor:pointer;font-weight:650;background:rgba(196,228,255,.12)}
+    button.primary{border-color:rgba(56,189,248,.62);background:linear-gradient(180deg,rgba(56,189,248,.3),rgba(56,189,248,.1))}
+    button.warn{border-color:rgba(245,158,11,.48)}
+    button.danger{border-color:rgba(239,68,68,.45)}
+    button:disabled{opacity:.58;cursor:not-allowed}
+    #tokenInput,#sessionSearchInput{flex:1;min-width:220px}
+    .embedOnly[hidden]{display:none!important}
+    .padGrid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+    .pad{border:1px solid rgba(255,255,255,.14);border-radius:14px;background:rgba(0,0,0,.24);padding:10px;display:grid;gap:7px}
+    .padTrigger{min-height:84px;border-radius:14px;border:1px solid rgba(34,211,238,.38);background:linear-gradient(180deg,rgba(56,189,248,.2),rgba(8,18,28,.8));text-align:left;padding:10px;font-size:17px;font-weight:760}
+    .padTrigger small{display:block;font-size:11px;color:var(--muted);font-weight:500;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .padTrigger.active{border-color:rgba(34,197,94,.75);box-shadow:0 0 0 3px rgba(34,197,94,.23);background:linear-gradient(180deg,rgba(34,197,94,.35),rgba(8,18,28,.8))}
+    .padCtl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+    .padCtl input[type="range"]{flex:1;min-width:110px}
+    .padCtl label{display:inline-flex;gap:6px;align-items:center;border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:6px 8px;min-height:34px;background:rgba(0,0,0,.16);color:var(--text);font-size:11px}
+    .clipList,.sessionList{display:grid;gap:8px}
+    .clipRow,.session{border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(0,0,0,.22);padding:9px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .clipInfo,.sName{min-width:0;display:grid;gap:2px}
+    .clipInfo strong,.sName strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(58vw,700px)}
+    .clipInfo span,.sName span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(58vw,700px)}
+    .clipActions,.sCtl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .volumeRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%}
+    .volumeRow input[type="range"]{flex:1;min-width:140px}
+    .vTxt{min-width:72px;text-align:right;color:var(--muted);font-size:12px}
+    .spotifyInfo{border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(0,0,0,.24);padding:10px;color:var(--muted);font-size:12px;white-space:pre-wrap}
+    .empty{color:var(--muted);text-align:center;font-size:13px;padding:22px 10px;border:1px dashed rgba(255,255,255,.2);border-radius:12px;background:rgba(0,0,0,.16)}
+    @media (max-width:760px){.app{padding:6px}.panel{border-radius:14px;min-height:calc(100vh - 12px)}.head,.body{padding:10px}input,select,button{min-height:46px;font-size:14px}.padTrigger{min-height:92px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <div class="head">
+        <div class="row" style="justify-content:space-between">
+          <div class="title">
+            <strong>Streaming Soundboard</strong>
+            <span>Voiceover Pads + Live App Audio Mixer + Spotify Hub</span>
+          </div>
+          <div class="row">
+            <div class="chip"><span class="dot" id="dotApi"></span><span id="apiState">verbinde...</span></div>
+            <div class="chip"><span id="sessionCount">0 Sessions</span></div>
+            <div class="chip"><span id="clipCount">0 Clips</span></div>
+            <button class="embedOnly" id="backMain" type="button" hidden>Zurueck zur Hauptseite</button>
+          </div>
+        </div>
+        <div class="row">
+          <input id="tokenInput" placeholder="Token (X-Token)" />
+          <button class="primary" id="saveToken" type="button">Token speichern</button>
+          <button id="refreshBtn" type="button">Neu laden</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="row">
+          <button id="refreshSessionsBtn" type="button">Sessions aktualisieren</button>
+          <button class="warn" id="stopAllPadsBtn" type="button">Alle Pads stoppen</button>
+          <div class="meta" id="metaBox">Bereit.</div>
+        </div>
+        <section class="card">
+          <div class="cardHead"><span>Voiceover Soundboard</span><span>Pad antippen: Play/Stop</span></div>
+          <div class="cardBody">
+            <div class="row">
+              <button class="primary" id="importClipsBtn" type="button">Audio-Clips importieren</button>
+              <button id="clearPadsBtn" type="button">Pad-Belegung leeren</button>
+              <button class="warn" id="stopPreviewBtn" type="button">Preview stoppen</button>
+              <input id="clipImportInput" type="file" accept="audio/*" multiple hidden />
+            </div>
+            <div class="padGrid" id="padGrid"></div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="cardHead"><span>Clip Bibliothek</span><span>Lokale Samples fuer Pads</span></div>
+          <div class="cardBody"><div class="clipList" id="clipList"></div></div>
+        </section>
+        <section class="card">
+          <div class="cardHead"><span>Spotify Hub</span><span id="spotifyState">nicht verbunden</span></div>
+          <div class="cardBody">
+            <div class="spotifyInfo" id="spotifyInfo">Noch kein Spotify-Prozess erkannt.</div>
+            <div class="row">
+              <button class="primary" id="spotifyOpenBtn" type="button">Spotify oeffnen</button>
+              <button id="spotifyPlayPauseBtn" type="button">Play/Pause</button>
+              <button class="warn" id="spotifyMuteBtn" type="button">Mute</button>
+            </div>
+            <div class="row">
+              <span style="font-size:12px;color:var(--muted)">Spotify Lautstaerke</span>
+              <input id="spotifyVolume" type="range" min="0" max="100" step="1" value="0" style="flex:1;min-width:160px" />
+              <strong id="spotifyVolumeText">0%</strong>
+            </div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="cardHead"><span>Aktive Audio-Sessions</span><span>Volume, Mute, Play/Pause pro App</span></div>
+          <div class="cardBody">
+            <div class="row"><input id="sessionSearchInput" placeholder="Suche App oder Prozess..." /></div>
+            <div class="sessionList" id="sessionList"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <script>
+    const LS_TOKEN = "sd_token";
+    const LS_PADS = "sd_soundboard_pads_v3";
+    const DB_NAME = "streamdeck_soundboard";
+    const DB_STORE = "clips";
+    const POLL_MS = 4200;
+    const PAD_COUNT = 8;
+
+    const state = {
+      token: "",
+      sessions: [],
+      spotify: null,
+      searchTerm: "",
+      pollTimer: null,
+      pads: [],
+      clips: [],
+      clipUrls: new Map(),
+      activePads: new Map(),
+      activePreviews: new Map(),
+      dbAvailable: ("indexedDB" in window)
+    };
+
+    const el = {
+      dotApi: document.getElementById("dotApi"),
+      apiState: document.getElementById("apiState"),
+      sessionCount: document.getElementById("sessionCount"),
+      clipCount: document.getElementById("clipCount"),
+      backMain: document.getElementById("backMain"),
+      tokenInput: document.getElementById("tokenInput"),
+      saveToken: document.getElementById("saveToken"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      refreshSessionsBtn: document.getElementById("refreshSessionsBtn"),
+      stopAllPadsBtn: document.getElementById("stopAllPadsBtn"),
+      metaBox: document.getElementById("metaBox"),
+      importClipsBtn: document.getElementById("importClipsBtn"),
+      clearPadsBtn: document.getElementById("clearPadsBtn"),
+      stopPreviewBtn: document.getElementById("stopPreviewBtn"),
+      clipImportInput: document.getElementById("clipImportInput"),
+      padGrid: document.getElementById("padGrid"),
+      clipList: document.getElementById("clipList"),
+      spotifyState: document.getElementById("spotifyState"),
+      spotifyInfo: document.getElementById("spotifyInfo"),
+      spotifyOpenBtn: document.getElementById("spotifyOpenBtn"),
+      spotifyPlayPauseBtn: document.getElementById("spotifyPlayPauseBtn"),
+      spotifyMuteBtn: document.getElementById("spotifyMuteBtn"),
+      spotifyVolume: document.getElementById("spotifyVolume"),
+      spotifyVolumeText: document.getElementById("spotifyVolumeText"),
+      sessionSearchInput: document.getElementById("sessionSearchInput"),
+      sessionList: document.getElementById("sessionList")
+    };
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+    function fmtBytes(n) {
+      const v = Number(n || 0);
+      if (!Number.isFinite(v) || v <= 0) return "0 B";
+      if (v < 1024) return `${Math.round(v)} B`;
+      if (v < 1024 * 1024) return `${(v / 1024).toFixed(1)} KB`;
+      return `${(v / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    function setApiState(text, cls) {
+      el.apiState.textContent = text;
+      el.dotApi.className = `dot ${cls || ""}`.trim();
+    }
+    function defaultPads() {
+      return Array.from({ length: PAD_COUNT }, (_, i) => ({
+        id: `pad-${i + 1}`,
+        label: `Pad ${i + 1}`,
+        clipId: "",
+        volumePercent: 100,
+        loop: false,
+        stopOthers: true
+      }));
+    }
+    function readPadConfig() {
+      state.pads = defaultPads();
+      try {
+        const raw = localStorage.getItem(LS_PADS);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (!parsed || !Array.isArray(parsed.pads)) return;
+        state.pads = state.pads.map((pad) => {
+          const p = parsed.pads.find((x) => x && String(x.id || "") === pad.id);
+          if (!p) return pad;
+          return {
+            id: pad.id,
+            label: String(p.label || pad.label).slice(0, 28),
+            clipId: String(p.clipId || ""),
+            volumePercent: clamp(Number(p.volumePercent || pad.volumePercent), 0, 100),
+            loop: p.loop === true,
+            stopOthers: p.stopOthers !== false
+          };
+        });
+      } catch {}
+    }
+    function savePadConfig() {
+      localStorage.setItem(LS_PADS, JSON.stringify({ pads: state.pads }));
+    }
+
+    function tokenFromUrl() {
+      try { return String(new URL(window.location.href).searchParams.get("token") || "").trim(); } catch { return ""; }
+    }
+    function isEmbedded() {
+      try { return String(new URL(window.location.href).searchParams.get("embed") || "") === "1"; } catch { return false; }
+    }
+    function postOverlayMessage(type) {
+      try { if (window.parent && window.parent !== window) window.parent.postMessage({ source: "streamdeck-overlay", type }, window.location.origin); } catch {}
+    }
+
+    async function api(route, init = {}) {
+      if (!state.token) throw new Error("Token fehlt");
+      const headers = { "X-Token": state.token };
+      if (init.body !== undefined) headers["Content-Type"] = "application/json";
+      const res = await fetch(route, {
+        method: init.method || "GET",
+        headers,
+        body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+        cache: "no-store"
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body || body.ok !== true) throw new Error(body?.error || `HTTP ${res.status}`);
+      return body;
+    }
+
+    let dbPromise = null;
+    function openDb() {
+      if (!state.dbAvailable) return Promise.resolve(null);
+      if (dbPromise) return dbPromise;
+      dbPromise = new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE, { keyPath: "id" });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error || new Error("IndexedDB Fehler"));
+      }).catch((e) => {
+        state.dbAvailable = false;
+        el.metaBox.textContent = `Clip Speicher nicht verfuegbar: ${e.message || String(e)}`;
+        return null;
+      });
+      return dbPromise;
+    }
+    async function dbGetAll() {
+      const db = await openDb();
+      if (!db) return [];
+      return new Promise((resolve, reject) => {
+        const req = db.transaction(DB_STORE, "readonly").objectStore(DB_STORE).getAll();
+        req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+        req.onerror = () => reject(req.error || new Error("Clip Laden fehlgeschlagen"));
+      });
+    }
+    async function dbPut(item) {
+      const db = await openDb();
+      if (!db) throw new Error("Clip Speicher fehlt");
+      return new Promise((resolve, reject) => {
+        const req = db.transaction(DB_STORE, "readwrite").objectStore(DB_STORE).put(item);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error || new Error("Clip Speichern fehlgeschlagen"));
+      });
+    }
+    async function dbDelete(id) {
+      const db = await openDb();
+      if (!db) throw new Error("Clip Speicher fehlt");
+      return new Promise((resolve, reject) => {
+        const req = db.transaction(DB_STORE, "readwrite").objectStore(DB_STORE).delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error || new Error("Clip Loeschen fehlgeschlagen"));
+      });
+    }
+
+    function clipById(id) { return state.clips.find((x) => x.id === id) || null; }
+    function revokeClipUrls() { for (const url of state.clipUrls.values()) URL.revokeObjectURL(url); state.clipUrls.clear(); }
+    async function loadClips() {
+      const records = await dbGetAll();
+      revokeClipUrls();
+      for (const rec of records) {
+        if (!rec || !rec.id || !rec.data) continue;
+        const url = URL.createObjectURL(new Blob([rec.data], { type: rec.mime || "audio/mpeg" }));
+        state.clipUrls.set(rec.id, url);
+      }
+      state.clips = records
+        .filter((x) => x && x.id)
+        .map((x) => ({ id: String(x.id), name: String(x.name || x.id), mime: String(x.mime || ""), size: Number(x.size || 0) }))
+        .sort((a, b) => a.name.localeCompare(b.name, "de", { sensitivity: "base" }));
+      renderClips();
+      renderPads();
+    }
+    async function importFiles(fileList) {
+      const files = Array.from(fileList || []).filter((f) => f && Number(f.size || 0) > 0);
+      if (!files.length) return;
+      if (!state.dbAvailable) throw new Error("Lokaler Clip Speicher nicht verfuegbar");
+      let count = 0;
+      for (const file of files) {
+        const id = `clip-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const data = await file.arrayBuffer();
+        await dbPut({ id, name: String(file.name || id), mime: String(file.type || "audio/mpeg"), size: Number(file.size || 0), data, createdAt: Date.now() });
+        count += 1;
+      }
+      await loadClips();
+      el.metaBox.textContent = `${count} Clip(s) importiert.`;
+    }
+    function stopPad(id) {
+      const audio = state.activePads.get(id);
+      if (!audio) return;
+      try { audio.pause(); } catch {}
+      try { audio.currentTime = 0; } catch {}
+      state.activePads.delete(id);
+    }
+    function stopAllPads() {
+      for (const id of Array.from(state.activePads.keys())) stopPad(id);
+      renderPads();
+    }
+    function stopPreview(id) {
+      const audio = state.activePreviews.get(id);
+      if (!audio) return;
+      try { audio.pause(); } catch {}
+      try { audio.currentTime = 0; } catch {}
+      state.activePreviews.delete(id);
+    }
+    function stopAllPreviews() {
+      for (const id of Array.from(state.activePreviews.keys())) stopPreview(id);
+      renderClips();
+    }
+    async function togglePad(id) {
+      const pad = state.pads.find((x) => x.id === id);
+      if (!pad) return;
+      if (state.activePads.has(id)) { stopPad(id); renderPads(); return; }
+      const clip = clipById(pad.clipId);
+      if (!clip) { el.metaBox.textContent = `${pad.label}: Kein Clip zugewiesen.`; return; }
+      const url = state.clipUrls.get(clip.id);
+      if (!url) { el.metaBox.textContent = `${pad.label}: Clip nicht geladen.`; return; }
+      if (pad.stopOthers) stopAllPads();
+      const audio = new Audio(url);
+      audio.loop = pad.loop === true;
+      audio.volume = clamp(Number(pad.volumePercent || 0) / 100, 0, 1);
+      audio.addEventListener("ended", () => { state.activePads.delete(id); renderPads(); });
+      audio.addEventListener("pause", () => { if (!audio.loop) { state.activePads.delete(id); renderPads(); } });
+      audio.addEventListener("error", () => { state.activePads.delete(id); setApiState("audio fehler", "err"); renderPads(); });
+      state.activePads.set(id, audio);
+      renderPads();
+      try {
+        await audio.play();
+        el.metaBox.textContent = `${pad.label}: ${clip.name} gestartet.`;
+      } catch (e) {
+        state.activePads.delete(id);
+        setApiState("audio blockiert", "err");
+        el.metaBox.textContent = `${pad.label}: ${e.message || String(e)}`;
+        renderPads();
+      }
+    }
+    async function togglePreview(id) {
+      const clip = clipById(id);
+      if (!clip) return;
+      if (state.activePreviews.has(id)) { stopPreview(id); renderClips(); return; }
+      const url = state.clipUrls.get(id);
+      if (!url) return;
+      const audio = new Audio(url);
+      audio.volume = 1;
+      audio.addEventListener("ended", () => { state.activePreviews.delete(id); renderClips(); });
+      audio.addEventListener("pause", () => { state.activePreviews.delete(id); renderClips(); });
+      state.activePreviews.set(id, audio);
+      renderClips();
+      try { await audio.play(); } catch { state.activePreviews.delete(id); renderClips(); }
+    }
+    function assignToFirstFreePad(clipId) {
+      const free = state.pads.find((x) => !x.clipId);
+      if (!free) { el.metaBox.textContent = "Kein freier Pad Slot."; return; }
+      free.clipId = clipId;
+      savePadConfig();
+      renderPads();
+      const clip = clipById(clipId);
+      el.metaBox.textContent = `${clip ? clip.name : "Clip"} auf ${free.label} gelegt.`;
+    }
+    async function deleteClip(id) {
+      stopPreview(id);
+      for (const pad of state.pads) {
+        if (pad.clipId === id) { stopPad(pad.id); pad.clipId = ""; }
+      }
+      savePadConfig();
+      await dbDelete(id);
+      await loadClips();
+      el.metaBox.textContent = "Clip geloescht.";
+    }
+    function renderPads() {
+      el.padGrid.textContent = "";
+      for (const pad of state.pads) {
+        const clip = clipById(pad.clipId);
+        const card = document.createElement("div");
+        card.className = "pad";
+        const trig = document.createElement("button");
+        trig.className = `padTrigger ${state.activePads.has(pad.id) ? "active" : ""}`.trim();
+        trig.type = "button";
+        const trigTitle = document.createElement("span");
+        trigTitle.textContent = pad.label;
+        const trigSub = document.createElement("small");
+        trigSub.textContent = state.activePads.has(pad.id)
+          ? `LIVE: ${clip ? clip.name : "kein Clip"}`
+          : (clip ? clip.name : "Kein Clip");
+        trig.append(trigTitle, trigSub);
+        trig.addEventListener("click", () => togglePad(pad.id).catch(() => {}));
+        card.appendChild(trig);
+
+        const labelInput = document.createElement("input");
+        labelInput.value = pad.label;
+        labelInput.maxLength = 28;
+        labelInput.addEventListener("change", () => {
+          pad.label = String(labelInput.value || "").trim().slice(0, 28) || "Pad";
+          savePadConfig();
+          renderPads();
+        });
+        card.appendChild(labelInput);
+
+        const sel = document.createElement("select");
+        const noneOpt = document.createElement("option");
+        noneOpt.value = "";
+        noneOpt.textContent = "Kein Clip";
+        sel.appendChild(noneOpt);
+        for (const c of state.clips) {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.name;
+          sel.appendChild(opt);
+        }
+        sel.value = pad.clipId || "";
+        sel.addEventListener("change", () => {
+          if (state.activePads.has(pad.id)) stopPad(pad.id);
+          pad.clipId = String(sel.value || "");
+          savePadConfig();
+          renderPads();
+        });
+        card.appendChild(sel);
+
+        const ctl = document.createElement("div");
+        ctl.className = "padCtl";
+        const volTxt = document.createElement("span");
+        volTxt.textContent = `Vol ${Math.round(pad.volumePercent)}%`;
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.min = "0";
+        slider.max = "100";
+        slider.step = "1";
+        slider.value = String(Math.round(pad.volumePercent));
+        slider.addEventListener("input", () => {
+          const next = clamp(Number(slider.value || 0), 0, 100);
+          pad.volumePercent = next;
+          volTxt.textContent = `Vol ${Math.round(next)}%`;
+          const live = state.activePads.get(pad.id);
+          if (live) live.volume = clamp(next / 100, 0, 1);
+        });
+        slider.addEventListener("change", savePadConfig);
+        ctl.appendChild(volTxt);
+        ctl.appendChild(slider);
+
+        const loopLabel = document.createElement("label");
+        const loopToggle = document.createElement("input");
+        loopToggle.type = "checkbox";
+        loopToggle.checked = pad.loop === true;
+        loopToggle.addEventListener("change", () => {
+          pad.loop = loopToggle.checked;
+          const live = state.activePads.get(pad.id);
+          if (live) live.loop = pad.loop;
+          savePadConfig();
+        });
+        loopLabel.appendChild(loopToggle);
+        loopLabel.append("Loop");
+        ctl.appendChild(loopLabel);
+
+        const soloLabel = document.createElement("label");
+        const soloToggle = document.createElement("input");
+        soloToggle.type = "checkbox";
+        soloToggle.checked = pad.stopOthers !== false;
+        soloToggle.addEventListener("change", () => {
+          pad.stopOthers = soloToggle.checked;
+          savePadConfig();
+        });
+        soloLabel.appendChild(soloToggle);
+        soloLabel.append("Solo");
+        ctl.appendChild(soloLabel);
+
+        const stopBtn = document.createElement("button");
+        stopBtn.type = "button";
+        stopBtn.textContent = "Stop";
+        stopBtn.disabled = !state.activePads.has(pad.id);
+        stopBtn.addEventListener("click", () => { stopPad(pad.id); renderPads(); });
+        ctl.appendChild(stopBtn);
+
+        card.appendChild(ctl);
+        el.padGrid.appendChild(card);
+      }
+    }
+    function renderClips() {
+      el.clipList.textContent = "";
+      el.clipCount.textContent = `${state.clips.length} Clips`;
+      if (!state.clips.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Noch keine Audio-Clips importiert.";
+        el.clipList.appendChild(empty);
+        return;
+      }
+      for (const clip of state.clips) {
+        const row = document.createElement("div");
+        row.className = "clipRow";
+        const info = document.createElement("div");
+        info.className = "clipInfo";
+        const infoTitle = document.createElement("strong");
+        infoTitle.textContent = clip.name;
+        const infoSub = document.createElement("span");
+        infoSub.textContent = `${fmtBytes(clip.size)} | ${clip.mime || "audio"}`;
+        info.append(infoTitle, infoSub);
+        row.appendChild(info);
+        const actions = document.createElement("div");
+        actions.className = "clipActions";
+        const preview = document.createElement("button");
+        preview.type = "button";
+        preview.textContent = state.activePreviews.has(clip.id) ? "Preview Stop" : "Preview";
+        preview.addEventListener("click", () => togglePreview(clip.id).catch(() => {}));
+        actions.appendChild(preview);
+        const assign = document.createElement("button");
+        assign.type = "button";
+        assign.className = "primary";
+        assign.textContent = "Auf freien Pad";
+        assign.addEventListener("click", () => assignToFirstFreePad(clip.id));
+        actions.appendChild(assign);
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "danger";
+        del.textContent = "Loeschen";
+        del.addEventListener("click", () => deleteClip(clip.id).catch((e) => { el.metaBox.textContent = e.message || String(e); }));
+        actions.appendChild(del);
+        row.appendChild(actions);
+        el.clipList.appendChild(row);
+      }
+    }
+    function normSession(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      const pidRaw = Number(raw.pid || 0);
+      const pid = Number.isFinite(pidRaw) ? Math.max(0, Math.trunc(pidRaw)) : 0;
+      const sessionKey = String(raw.sessionKey || raw.sessionInstanceIdentifier || raw.sessionIdentifier || "").trim();
+      const processName = String(raw.processName || "").trim();
+      const displayName = String(raw.displayName || "").trim();
+      const volumePercent = Number(raw.volumePercent || 0);
+      if (!pid && !sessionKey && !processName && !displayName) return null;
+      return {
+        pid,
+        sessionKey,
+        processName,
+        displayName,
+        state: String(raw.state || "").trim(),
+        volumePercent: Number.isFinite(volumePercent) ? clamp(volumePercent, 0, 100) : 0,
+        muted: raw.muted === true,
+        hasWindow: raw.hasWindow === true
+      };
+    }
+    function sessionLabel(s) { return s.displayName || s.processName || (s.pid > 0 ? `PID ${s.pid}` : "Unbekannte Session"); }
+    function sessionId(s) { return s.sessionKey ? `key:${s.sessionKey}` : (s.pid > 0 ? `pid:${s.pid}` : `${s.processName}:${s.displayName}`); }
+    function spotifySession() {
+      if (state.spotify && (state.spotify.sessionKey || state.spotify.pid)) {
+        const match = state.sessions.find((s) =>
+          (state.spotify.sessionKey && s.sessionKey === state.spotify.sessionKey)
+          || (state.spotify.pid > 0 && s.pid === state.spotify.pid)
+        );
+        if (match) return match;
+      }
+      return state.sessions.find((s) => /spotify/i.test(`${s.processName} ${s.displayName}`)) || null;
+    }
+    function sessionTarget(s) { return { pid: Number(s.pid || 0), sessionKey: String(s.sessionKey || "") }; }
+    async function setSessionVolume(s, volumePercent) {
+      const t = sessionTarget(s);
+      await api("/api/audio/session/volume", { method: "POST", body: { pid: t.pid, sessionKey: t.sessionKey, volumePercent } });
+      await loadMixer({ silent: true });
+    }
+    async function setSessionMute(s, muted) {
+      const t = sessionTarget(s);
+      await api("/api/audio/session/mute", { method: "POST", body: { pid: t.pid, sessionKey: t.sessionKey, muted } });
+      await loadMixer({ silent: true });
+    }
+    async function playPauseSession(s) {
+      await api("/api/audio/session/playpause", { method: "POST", body: { pid: Number(s?.pid || 0) } });
+    }
+    async function openSpotify() { await api("/api/audio/spotify/open", { method: "POST", body: {} }); }
+
+    function renderSpotify() {
+      const spot = spotifySession();
+      if (!spot) {
+        el.spotifyState.textContent = "nicht verbunden";
+        el.spotifyInfo.textContent = "Spotify wurde in den aktiven Audio-Sessions nicht gefunden.\nTip: Starten, Audio wiedergeben, dann neu laden.";
+        el.spotifyPlayPauseBtn.disabled = false;
+        el.spotifyMuteBtn.disabled = true;
+        el.spotifyVolume.disabled = true;
+        el.spotifyVolume.value = "0";
+        el.spotifyVolumeText.textContent = "0%";
+        return;
+      }
+      const volume = Math.round(Number(spot.volumePercent || 0));
+      el.spotifyState.textContent = spot.pid > 0 ? `verbunden (PID ${spot.pid})` : "verbunden";
+      el.spotifyInfo.textContent = [
+        `App: ${sessionLabel(spot)}`,
+        `Prozess: ${spot.processName || "-"}`,
+        `Mute: ${spot.muted ? "Ja" : "Nein"}`,
+        `Status: ${spot.state || "-"}`,
+        spot.sessionKey ? "SessionKey aktiv" : "SessionKey: -"
+      ].join("\n");
+      el.spotifyPlayPauseBtn.disabled = false;
+      el.spotifyMuteBtn.disabled = false;
+      el.spotifyMuteBtn.textContent = spot.muted ? "Unmute" : "Mute";
+      el.spotifyVolume.disabled = false;
+      el.spotifyVolume.value = String(volume);
+      el.spotifyVolumeText.textContent = `${volume}%`;
+    }
+    function filteredSessions() {
+      const q = String(state.searchTerm || "").trim().toLowerCase();
+      if (!q) return state.sessions;
+      return state.sessions.filter((s) => `${sessionLabel(s)} ${s.processName} ${s.displayName}`.toLowerCase().includes(q));
+    }
+    function sessionNode(s) {
+      const row = document.createElement("div");
+      row.className = "session";
+      const info = document.createElement("div");
+      info.className = "sName";
+      const sTitle = document.createElement("strong");
+      sTitle.textContent = sessionLabel(s);
+      const sSub = document.createElement("span");
+      sSub.textContent = `${s.processName || "app"} | PID ${s.pid || "-"} | ${s.state || "state"}`;
+      info.append(sTitle, sSub);
+      row.appendChild(info);
+
+      const controls = document.createElement("div");
+      controls.className = "sCtl";
+      const volWrap = document.createElement("div");
+      volWrap.className = "volumeRow";
+      const minus = document.createElement("button");
+      minus.type = "button";
+      minus.textContent = "-";
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "0";
+      slider.max = "100";
+      slider.step = "1";
+      slider.value = String(Math.round(s.volumePercent || 0));
+      const plus = document.createElement("button");
+      plus.type = "button";
+      plus.textContent = "+";
+      const vtxt = document.createElement("div");
+      vtxt.className = "vTxt";
+      vtxt.textContent = `${Math.round(s.volumePercent || 0)}%`;
+      slider.addEventListener("input", () => { vtxt.textContent = `${slider.value}%`; });
+      slider.addEventListener("change", async () => {
+        try { await setSessionVolume(s, Number(slider.value)); el.metaBox.textContent = `${sessionLabel(s)} Lautstaerke gesetzt: ${slider.value}%`; }
+        catch (e) { setApiState("fehler", "err"); el.metaBox.textContent = `Volume fehlgeschlagen: ${e.message || String(e)}`; }
+      });
+      minus.addEventListener("click", async () => {
+        const next = Math.max(0, Number(slider.value) - 5);
+        slider.value = String(next);
+        vtxt.textContent = `${next}%`;
+        try { await setSessionVolume(s, next); } catch (e) { setApiState("fehler", "err"); el.metaBox.textContent = `Volume -5 fehlgeschlagen: ${e.message || String(e)}`; }
+      });
+      plus.addEventListener("click", async () => {
+        const next = Math.min(100, Number(slider.value) + 5);
+        slider.value = String(next);
+        vtxt.textContent = `${next}%`;
+        try { await setSessionVolume(s, next); } catch (e) { setApiState("fehler", "err"); el.metaBox.textContent = `Volume +5 fehlgeschlagen: ${e.message || String(e)}`; }
+      });
+      volWrap.append(minus, slider, plus, vtxt);
+      controls.appendChild(volWrap);
+
+      const mute = document.createElement("button");
+      mute.type = "button";
+      mute.className = "warn";
+      mute.textContent = s.muted ? "Unmute" : "Mute";
+      mute.addEventListener("click", async () => {
+        try { await setSessionMute(s, !s.muted); el.metaBox.textContent = `${sessionLabel(s)}: ${s.muted ? "Unmute" : "Mute"}`; }
+        catch (e) { setApiState("fehler", "err"); el.metaBox.textContent = `Mute fehlgeschlagen: ${e.message || String(e)}`; }
+      });
+      controls.appendChild(mute);
+
+      const pp = document.createElement("button");
+      pp.type = "button";
+      pp.textContent = "Play/Pause";
+      pp.addEventListener("click", async () => {
+        try { await playPauseSession(s); el.metaBox.textContent = `${sessionLabel(s)} Play/Pause ausgelost.`; }
+        catch (e) { setApiState("fehler", "err"); el.metaBox.textContent = `Play/Pause fehlgeschlagen: ${e.message || String(e)}`; }
+      });
+      controls.appendChild(pp);
+      row.appendChild(controls);
+      return row;
+    }
+    function renderSessions() {
+      el.sessionList.textContent = "";
+      el.sessionCount.textContent = `${state.sessions.length} Sessions`;
+      const sessions = filteredSessions();
+      if (!sessions.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = state.sessions.length ? "Suche liefert keine Session." : "Keine aktive Audio-Session gefunden. Starte z.B. Youtube/Spotify und aktualisiere.";
+        el.sessionList.appendChild(empty);
+        return;
+      }
+      for (const s of sessions) el.sessionList.appendChild(sessionNode(s));
+    }
+    async function loadMixer(options = {}) {
+      const silent = options.silent === true;
+      const data = await api("/api/audio/mixer");
+      state.sessions = (Array.isArray(data.sessions) ? data.sessions.map(normSession).filter(Boolean) : []).sort((a, b) => {
+        const byName = sessionLabel(a).localeCompare(sessionLabel(b), "de", { sensitivity: "base" });
+        if (byName !== 0) return byName;
+        return sessionId(a).localeCompare(sessionId(b), "de", { sensitivity: "base" });
+      });
+      state.spotify = data.spotify && typeof data.spotify === "object" ? {
+        pid: Number(data.spotify.pid || 0),
+        sessionKey: String(data.spotify.sessionKey || ""),
+        processName: String(data.spotify.processName || ""),
+        displayName: String(data.spotify.displayName || ""),
+        muted: data.spotify.muted === true,
+        volumePercent: Number(data.spotify.volumePercent || 0)
+      } : null;
+      renderSessions();
+      renderSpotify();
+      if (data.available === false) {
+        setApiState("Audio nicht verfuegbar", "err");
+        el.metaBox.textContent = data.error || "Audio-Mixer derzeit nicht verfuegbar.";
+      } else {
+        setApiState("live", "ok");
+        if (!silent) el.metaBox.textContent = state.sessions.length ? `${state.sessions.length} Audio-Sessions geladen.` : "Noch keine aktive Session erkannt.";
+      }
+    }
+    function bind() {
+      el.saveToken.addEventListener("click", () => {
+        state.token = String(el.tokenInput.value || "").trim();
+        localStorage.setItem(LS_TOKEN, state.token);
+        refreshAll().catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); });
+      });
+      el.refreshBtn.addEventListener("click", () => {
+        refreshAll().catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); });
+      });
+      el.refreshSessionsBtn.addEventListener("click", () => {
+        loadMixer().catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); });
+      });
+      el.stopAllPadsBtn.addEventListener("click", () => { stopAllPads(); el.metaBox.textContent = "Alle Pads gestoppt."; });
+      el.importClipsBtn.addEventListener("click", () => el.clipImportInput.click());
+      el.clipImportInput.addEventListener("change", () => {
+        importFiles(el.clipImportInput.files)
+          .catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); })
+          .finally(() => { el.clipImportInput.value = ""; });
+      });
+      el.clearPadsBtn.addEventListener("click", () => {
+        stopAllPads();
+        state.pads = defaultPads();
+        savePadConfig();
+        renderPads();
+        el.metaBox.textContent = "Pad Belegung zurueckgesetzt.";
+      });
+      el.stopPreviewBtn.addEventListener("click", () => { stopAllPreviews(); el.metaBox.textContent = "Alle Previews gestoppt."; });
+      el.sessionSearchInput.addEventListener("input", () => { state.searchTerm = String(el.sessionSearchInput.value || ""); renderSessions(); });
+      el.spotifyOpenBtn.addEventListener("click", () => {
+        openSpotify().then(() => { el.metaBox.textContent = "Spotify Start angefordert."; })
+          .catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); });
+      });
+      el.spotifyPlayPauseBtn.addEventListener("click", () => {
+        const spot = spotifySession();
+        playPauseSession(spot || { pid: 0 })
+          .then(() => { el.metaBox.textContent = spot ? "Spotify Play/Pause ausgelost." : "Globales Play/Pause Signal ausgelost."; })
+          .catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); });
+      });
+      el.spotifyMuteBtn.addEventListener("click", () => {
+        const spot = spotifySession();
+        if (!spot) return;
+        setSessionMute(spot, !spot.muted)
+          .then(() => { el.metaBox.textContent = `Spotify ${spot.muted ? "Unmute" : "Mute"}`; })
+          .catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); });
+      });
+      el.spotifyVolume.addEventListener("input", () => { el.spotifyVolumeText.textContent = `${el.spotifyVolume.value}%`; });
+      el.spotifyVolume.addEventListener("change", () => {
+        const spot = spotifySession();
+        if (!spot) return;
+        setSessionVolume(spot, Number(el.spotifyVolume.value))
+          .then(() => { el.metaBox.textContent = `Spotify Lautstaerke gesetzt: ${el.spotifyVolume.value}%`; })
+          .catch((e) => { setApiState("fehler", "err"); el.metaBox.textContent = e.message || String(e); });
+      });
+    }
+
+    async function refreshAll() {
+      await loadMixer();
+      renderPads();
+      renderClips();
+    }
+    function startPolling() {
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      state.pollTimer = setInterval(() => { if (state.token) loadMixer({ silent: true }).catch(() => {}); }, POLL_MS);
+    }
+    async function init() {
+      state.token = tokenFromUrl() || String(localStorage.getItem(LS_TOKEN) || "").trim();
+      el.tokenInput.value = state.token;
+      readPadConfig();
+      bind();
+      startPolling();
+      if (isEmbedded()) el.backMain.hidden = false;
+      el.backMain.addEventListener("click", () => postOverlayMessage("back-main"));
+      await openDb();
+      await loadClips();
+      if (!state.token) {
+        setApiState("token fehlt", "err");
+        el.metaBox.textContent = "Bitte zuerst Token setzen.";
+        renderSessions();
+        renderSpotify();
+        return;
+      }
+      await refreshAll();
+    }
+
+    window.addEventListener("beforeunload", () => {
+      stopAllPads();
+      stopAllPreviews();
+      revokeClipUrls();
+      if (state.pollTimer) clearInterval(state.pollTimer);
+    });
+
+    init().catch((e) => {
+      setApiState("fehler", "err");
+      el.metaBox.textContent = `Init fehlgeschlagen: ${e.message || String(e)}`;
+    });
+  </script>
+</body>
+</html>

@@ -27,6 +27,10 @@ Example response:
     "logsRecent": true,
     "settingsLogging": true,
     "settingsImportExport": true,
+    "systemMetrics": true,
+    "wowAddonsManager": true,
+    "curseforgeControl": true,
+    "audioMixer": true,
     "programResolve": true,
     "tileDetails": true,
     "dryRun": false,
@@ -37,6 +41,108 @@ Example response:
 
 ## GET /api/status
 Current WoW process status.
+
+## GET /api/audio/mixer
+Returns current audio mixer snapshot.
+
+Response contains:
+- `available`: whether mixer controls are available on current host
+- `platform`: host platform
+- `sessions[]`: list of active audio sessions
+  - `pid`, `sessionKey`, `processName`, `displayName`, `state`
+  - `volumePercent`, `muted`, `hasWindow`
+- `spotify`: nullable compact Spotify session object (when detected)
+  - includes `pid` and `sessionKey`
+
+## POST /api/audio/session/volume
+Set session volume by process id or session key.
+
+Request:
+
+```json
+{ "pid": 1234, "volumePercent": 65 }
+```
+
+Alternative for browser/virtual sessions without stable PID:
+
+```json
+{ "sessionKey": "inst::<...>", "volumePercent": 65 }
+```
+
+## POST /api/audio/session/mute
+Set session mute state by process id or session key.
+
+Request:
+
+```json
+{ "pid": 1234, "muted": true }
+```
+
+Alternative:
+
+```json
+{ "sessionKey": "inst::<...>", "muted": true }
+```
+
+## POST /api/audio/session/playpause
+Send Play/Pause to target process (falls back to global media key).
+
+Request:
+
+```json
+{ "pid": 1234 }
+```
+
+## POST /api/audio/spotify/open
+Open Spotify via protocol handler (`spotify:`).
+
+## GET /api/curseforge/status
+Returns CurseForge launcher + process state.
+
+Response contains:
+- `configuredPath`: configured launcher path from settings
+- `executablePath`: resolved existing `CurseForge.exe` path (if found)
+- `installed`: whether an executable path is available
+- `running`: whether CurseForge process is currently running
+- `processName`: matched process image name (`CurseForge.exe` or empty)
+
+## POST /api/curseforge/start
+Start CurseForge via resolved executable path.
+
+## POST /api/curseforge/stop
+Stop CurseForge process (`taskkill` on Windows).
+
+## POST /api/curseforge/restart
+Stop + start CurseForge.
+
+## GET /api/system/metrics
+Live system metrics for performance overlay.
+
+Response contains:
+- `cpu.usagePercent`, `cpu.cores`
+- `memory.totalBytes`, `memory.usedBytes`, `memory.freeBytes`, `memory.usagePercent`
+- `network.rxBytesPerSec`, `network.txBytesPerSec`, `network.rxTotalBytes`, `network.txTotalBytes`
+- `system.hostname`, `system.platform`, `system.release`, `system.arch`, `system.uptimeSec`
+- `process.pid`, `process.uptimeSec`, `process.rssBytes`, `process.heapUsedBytes`
+
+## GET /api/wow/addons
+List WoW AddOns from configured `wow.folders.addons`.
+
+Response contains:
+- `baseDir`: resolved AddOns directory
+- `items[]`: `{ key, folder, name, title, enabled }`
+
+## POST /api/wow/addons/toggle
+Enable/disable one AddOn by renaming folder (`.disabled` suffix).
+
+Request:
+
+```json
+{ "key": "Questie", "enabled": false }
+```
+
+## POST /api/wow/addons/open-folder
+Open configured AddOns directory in Explorer.
 
 ## GET /api/actions
 List of supported legacy action names.

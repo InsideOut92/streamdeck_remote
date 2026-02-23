@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CurseForge AddOn Manager</title>
+  <style>
+    :root {
+      --bg0: #070910;
+      --bg1: #111827;
+      --bg2: #1f2937;
+      --card: rgba(13, 22, 35, 0.85);
+      --line: rgba(190, 220, 255, 0.2);
+      --text: #ecf6ff;
+      --muted: rgba(205, 225, 245, 0.78);
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --accent: #38bdf8;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(1000px 680px at 8% -10%, rgba(56,189,248,.2), transparent 60%),
+        radial-gradient(1000px 680px at 102% -12%, rgba(16,185,129,.18), transparent 58%),
+        linear-gradient(165deg, var(--bg0), var(--bg1) 50%, var(--bg2));
+    }
+
+    .app {
+      min-height: 100%;
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .head {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .title strong { display: block; font-size: 20px; }
+    .title span { color: var(--muted); font-size: 12px; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(0,0,0,.24);
+      padding: 6px 10px;
+      font-size: 12px;
+      min-height: 34px;
+      width: fit-content;
+    }
+    .chip.ok { border-color: rgba(34, 197, 94, 0.45); }
+    .chip.err { border-color: rgba(239, 68, 68, 0.45); }
+
+    .headStatus {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+    .dot.err { background: var(--err); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+
+    .tokenRow, .actionsRow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input, button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      min-height: 38px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--text);
+    }
+    input {
+      flex: 1;
+      min-width: 220px;
+      background: rgba(0,0,0,.28);
+      outline: 0;
+    }
+    button {
+      background: rgba(196, 228, 255, 0.1);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button.primary {
+      border-color: rgba(56, 189, 248, 0.62);
+      background: linear-gradient(180deg, rgba(56,189,248,.3), rgba(56,189,248,.1));
+    }
+    button.warn { border-color: rgba(245, 158, 11, 0.45); }
+
+    .embedOnly[hidden] {
+      display: none !important;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px dashed rgba(255,255,255,.18);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: rgba(0,0,0,.18);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .listWrap {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--card);
+      overflow: hidden;
+      min-height: 300px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .listHead {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .rows {
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .row {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .name {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .name strong {
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .name span {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .state {
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      background: rgba(0,0,0,.24);
+      white-space: nowrap;
+    }
+    .state.on { color: #89f3b3; border-color: rgba(34,197,94,.45); }
+    .state.off { color: #ffd58a; border-color: rgba(245,158,11,.45); }
+
+    .rowActions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 40px 16px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="head">
+      <div class="title">
+        <strong>CurseForge AddOn Manager</strong>
+        <span>Direkt im StreamDeck Overlay AddOns aktivieren/deaktivieren und CurseForge starten.</span>
+      </div>
+      <div class="headStatus">
+        <div class="chip">
+          <span class="dot" id="dotApi"></span>
+          <span id="apiState">verbinde...</span>
+        </div>
+        <div class="chip" id="cfChip">
+          <span class="dot" id="dotCf"></span>
+          <span id="cfState">CurseForge: status...</span>
+        </div>
+        <button class="embedOnly" id="backMain" type="button" hidden>Zurueck zur Hauptseite</button>
+      </div>
+      <div class="tokenRow">
+        <input id="tokenInput" placeholder="Token (X-Token)" />
+        <button class="primary" id="saveToken" type="button">Token speichern</button>
+      </div>
+      <div class="actionsRow">
+        <button id="refreshBtn" type="button">AddOns neu laden</button>
+        <button id="openFolderBtn" type="button">AddOns Ordner oeffnen</button>
+        <button class="primary" id="cfStartBtn" type="button">CurseForge starten</button>
+        <button id="cfRestartBtn" type="button">Neustart</button>
+        <button class="warn" id="cfStopBtn" type="button">Beenden</button>
+        <input id="searchInput" placeholder="AddOn filtern..." />
+      </div>
+      <div class="meta" id="cfMetaBox">CurseForge: warte auf Status...</div>
+      <div class="meta" id="metaBox">Noch keine Daten geladen.</div>
+    </div>
+
+    <div class="listWrap">
+      <div class="listHead">
+        <span id="countLabel">0 AddOns</span>
+        <span id="baseDirLabel">Pfad: -</span>
+      </div>
+      <div class="rows" id="rows"></div>
+    </div>
+  </div>
+
+  <script>
+    const LS_TOKEN_KEY = "sd_token";
+    const state = {
+      token: "",
+      items: [],
+      baseDir: "",
+      statusTimer: null,
+      curseforge: {
+        running: false,
+        installed: false,
+        processName: "",
+        executablePath: "",
+        configuredPath: ""
+      }
+    };
+
+    const el = {
+      dotApi: document.getElementById("dotApi"),
+      apiState: document.getElementById("apiState"),
+      cfChip: document.getElementById("cfChip"),
+      dotCf: document.getElementById("dotCf"),
+      cfState: document.getElementById("cfState"),
+      backMain: document.getElementById("backMain"),
+      tokenInput: document.getElementById("tokenInput"),
+      saveToken: document.getElementById("saveToken"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      openFolderBtn: document.getElementById("openFolderBtn"),
+      cfStartBtn: document.getElementById("cfStartBtn"),
+      cfStopBtn: document.getElementById("cfStopBtn"),
+      cfRestartBtn: document.getElementById("cfRestartBtn"),
+      searchInput: document.getElementById("searchInput"),
+      cfMetaBox: document.getElementById("cfMetaBox"),
+      metaBox: document.getElementById("metaBox"),
+      countLabel: document.getElementById("countLabel"),
+      baseDirLabel: document.getElementById("baseDirLabel"),
+      rows: document.getElementById("rows")
+    };
+
+    function setApiState(text, cls) {
+      el.apiState.textContent = text;
+      el.dotApi.className = `dot ${cls || ""}`.trim();
+    }
+
+    function setCurseForgeState(text, cls) {
+      el.cfState.textContent = text;
+      el.dotCf.className = `dot ${cls || ""}`.trim();
+      el.cfChip.className = `chip ${cls || ""}`.trim();
+    }
+
+    function parseTokenFromUrl() {
+      try {
+        const url = new URL(window.location.href);
+        return String(url.searchParams.get("token") || "").trim();
+      } catch {
+        return "";
+      }
+    }
+
+    function isEmbeddedMode() {
+      try {
+        const url = new URL(window.location.href);
+        return String(url.searchParams.get("embed") || "").trim() === "1";
+      } catch {
+        return false;
+      }
+    }
+
+    function postOverlayMessage(type) {
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ source: "streamdeck-overlay", type }, window.location.origin);
+        }
+      } catch {
+        // ignore messaging failures
+      }
+    }
+
+    async function api(route, init = {}) {
+      if (!state.token) throw new Error("Token fehlt");
+      const headers = { "X-Token": state.token };
+      if (init.body !== undefined) headers["Content-Type"] = "application/json";
+      const response = await fetch(route, {
+        method: init.method || "GET",
+        headers,
+        body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+        cache: "no-store"
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body || body.ok !== true) {
+        throw new Error(body?.error || `HTTP ${response.status}`);
+      }
+      return body;
+    }
+
+    function renderCurseForgeMeta() {
+      const data = state.curseforge || {};
+      const executable = String(data.executablePath || "").trim();
+      const configured = String(data.configuredPath || "").trim();
+      const processName = String(data.processName || "").trim();
+
+      const lines = [
+        `Running: ${data.running ? "Ja" : "Nein"}`,
+        `Installed: ${data.installed ? "Ja" : "Nein"}`,
+        `Process: ${processName || "-"}`,
+        `Exe: ${executable || "-"}`,
+        `Configured Launcher Path: ${configured || "-"}`
+      ];
+      el.cfMetaBox.textContent = lines.join("\n");
+    }
+
+    async function loadCurseForgeStatus(options = {}) {
+      const silent = options.silent === true;
+      const data = await api("/api/curseforge/status");
+      state.curseforge = {
+        running: Boolean(data.running),
+        installed: Boolean(data.installed),
+        processName: String(data.processName || ""),
+        executablePath: String(data.executablePath || ""),
+        configuredPath: String(data.configuredPath || "")
+      };
+
+      if (state.curseforge.running) {
+        setCurseForgeState(`CurseForge: laeuft (${state.curseforge.processName || "CurseForge.exe"})`, "ok");
+      } else if (state.curseforge.installed) {
+        setCurseForgeState("CurseForge: bereit", "");
+      } else {
+        setCurseForgeState("CurseForge: Exe nicht gefunden", "err");
+      }
+
+      renderCurseForgeMeta();
+      if (!silent) {
+        el.metaBox.textContent = `AddOn-Daten aktuell: ${state.items.length} Eintraege.`;
+      }
+    }
+
+    function visibleItems() {
+      const q = String(el.searchInput.value || "").trim().toLowerCase();
+      if (!q) return state.items;
+      return state.items.filter((x) =>
+        String(x.title || "").toLowerCase().includes(q) ||
+        String(x.name || "").toLowerCase().includes(q) ||
+        String(x.folder || "").toLowerCase().includes(q)
+      );
+    }
+
+    function renderRows() {
+      const list = visibleItems();
+      el.rows.textContent = "";
+      if (!list.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = "Keine passenden AddOns gefunden.";
+        el.rows.appendChild(empty);
+        return;
+      }
+
+      for (const item of list) {
+        const row = document.createElement("div");
+        row.className = "row";
+
+        const top = document.createElement("div");
+        top.className = "top";
+
+        const name = document.createElement("div");
+        name.className = "name";
+        const title = document.createElement("strong");
+        title.textContent = item.title || item.name || item.folder;
+        const sub = document.createElement("span");
+        sub.textContent = `${item.folder || "-"}${item.enabled ? "" : " (deaktiviert)"}`;
+        name.appendChild(title);
+        name.appendChild(sub);
+
+        const stateTag = document.createElement("span");
+        stateTag.className = `state ${item.enabled ? "on" : "off"}`;
+        stateTag.textContent = item.enabled ? "AKTIV" : "DEAKTIV";
+
+        top.appendChild(name);
+        top.appendChild(stateTag);
+        row.appendChild(top);
+
+        const actions = document.createElement("div");
+        actions.className = "rowActions";
+        const toggle = document.createElement("button");
+        toggle.className = item.enabled ? "warn" : "primary";
+        toggle.type = "button";
+        toggle.textContent = item.enabled ? "Deaktivieren" : "Aktivieren";
+        toggle.onclick = async () => {
+          try {
+            const payload = await api("/api/wow/addons/toggle", {
+              method: "POST",
+              body: { key: item.key, enabled: !item.enabled }
+            });
+            state.items = Array.isArray(payload.items) ? payload.items : [];
+            state.baseDir = String(payload.baseDir || state.baseDir || "");
+            el.metaBox.textContent = payload.changed
+              ? `Geaendert: ${payload.fromKey} -> ${payload.toKey}`
+              : `Keine Aenderung fuer ${payload.fromKey}`;
+            setApiState("live", "ok");
+            renderSummary();
+            renderRows();
+          } catch (error) {
+            setApiState("fehler", "err");
+            el.metaBox.textContent = `Umschalten fehlgeschlagen: ${error.message || String(error)}`;
+          }
+        };
+        actions.appendChild(toggle);
+        row.appendChild(actions);
+
+        el.rows.appendChild(row);
+      }
+    }
+
+    function renderSummary() {
+      const enabled = state.items.filter((x) => x.enabled).length;
+      const total = state.items.length;
+      el.countLabel.textContent = `${total} AddOns (${enabled} aktiv)`;
+      el.baseDirLabel.textContent = `Pfad: ${state.baseDir || "-"}`;
+    }
+
+    async function loadAddons() {
+      const data = await api("/api/wow/addons");
+      state.items = Array.isArray(data.items) ? data.items : [];
+      state.baseDir = String(data.baseDir || "");
+      renderSummary();
+      renderRows();
+      el.metaBox.textContent = `AddOns geladen: ${state.items.length}`;
+      setApiState("live", "ok");
+    }
+
+    async function openAddonsFolder() {
+      await api("/api/wow/addons/open-folder", { method: "POST", body: {} });
+      el.metaBox.textContent = "AddOns Ordner im Explorer geoeffnet.";
+    }
+
+    async function startCurseForgeApp() {
+      const result = await api("/api/curseforge/start", { method: "POST", body: {} });
+      await loadCurseForgeStatus({ silent: true });
+      el.metaBox.textContent = `CurseForge Start angefordert (${result.executablePath || state.curseforge.executablePath || "-"})`;
+    }
+
+    async function stopCurseForgeApp() {
+      const result = await api("/api/curseforge/stop", { method: "POST", body: {} });
+      await loadCurseForgeStatus({ silent: true });
+      const stopped = Array.isArray(result.stopped) ? result.stopped.join(", ") : "";
+      el.metaBox.textContent = stopped
+        ? `CurseForge beendet (${stopped})`
+        : "CurseForge war bereits beendet.";
+    }
+
+    async function restartCurseForgeApp() {
+      const result = await api("/api/curseforge/restart", { method: "POST", body: {} });
+      await loadCurseForgeStatus({ silent: true });
+      el.metaBox.textContent = `CurseForge neu gestartet (${result.executablePath || state.curseforge.executablePath || "-"})`;
+    }
+
+    function saveToken() {
+      state.token = String(el.tokenInput.value || "").trim();
+      localStorage.setItem(LS_TOKEN_KEY, state.token);
+    }
+
+    async function refreshAll() {
+      const [addonsResult, statusResult] = await Promise.allSettled([
+        loadAddons(),
+        loadCurseForgeStatus({ silent: true })
+      ]);
+      if (addonsResult.status === "rejected") throw addonsResult.reason;
+      if (statusResult.status === "rejected") throw statusResult.reason;
+    }
+
+    function init() {
+      const fromUrl = parseTokenFromUrl();
+      const fromStorage = String(localStorage.getItem(LS_TOKEN_KEY) || "").trim();
+      state.token = fromUrl || fromStorage;
+      el.tokenInput.value = state.token;
+      if (isEmbeddedMode()) {
+        el.backMain.hidden = false;
+      }
+
+      el.backMain.addEventListener("click", () => postOverlayMessage("back-main"));
+
+      el.saveToken.addEventListener("click", () => {
+        saveToken();
+        refreshAll().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `Laden fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.refreshBtn.addEventListener("click", () => {
+        refreshAll().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `Laden fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.openFolderBtn.addEventListener("click", () => {
+        openAddonsFolder().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `Ordner oeffnen fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.cfStartBtn.addEventListener("click", () => {
+        startCurseForgeApp().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `CurseForge Start fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.cfStopBtn.addEventListener("click", () => {
+        stopCurseForgeApp().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `CurseForge Stop fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.cfRestartBtn.addEventListener("click", () => {
+        restartCurseForgeApp().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `CurseForge Neustart fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.searchInput.addEventListener("input", renderRows);
+
+      if (!state.token) {
+        setApiState("token fehlt", "err");
+        setCurseForgeState("CurseForge: token fehlt", "err");
+        el.metaBox.textContent = "Bitte zuerst den Token setzen.";
+        return;
+      }
+      refreshAll().catch((error) => {
+        setApiState("fehler", "err");
+        el.metaBox.textContent = `Laden fehlgeschlagen: ${error.message || String(error)}`;
+      });
+
+      if (state.statusTimer) clearInterval(state.statusTimer);
+      state.statusTimer = setInterval(() => {
+        if (!state.token) return;
+        loadCurseForgeStatus({ silent: true }).catch(() => {});
+      }, 5000);
+      window.addEventListener("beforeunload", () => {
+        if (state.statusTimer) clearInterval(state.statusTimer);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

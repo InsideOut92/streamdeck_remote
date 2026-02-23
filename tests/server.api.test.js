@@ -134,6 +134,9 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
   fs.writeFileSync(fuzzyProgramPath, "fake exe for resolver test", "utf8");
   initialConfig.launchers.fuzzyTest.path = fuzzyProgramPath;
   initialConfig.launchers.fuzzyTest.candidates = [fuzzyProgramPath];
+  const addonDir = path.join(tmpDir, "MyAddon");
+  fs.mkdirSync(addonDir, { recursive: true });
+  fs.writeFileSync(path.join(addonDir, "MyAddon.toc"), "## Title: My Addon\n", "utf8");
   fs.writeFileSync(configPath, JSON.stringify(initialConfig, null, 2), "utf8");
 
   const child = spawn(process.execPath, ["server.js"], {
@@ -161,6 +164,58 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     assert.equal(health.body?.features?.tileDetails, true);
     assert.equal(health.body?.features?.launcherAutodetect, false);
     assert.equal(health.body?.features?.settingsImportExport, true);
+    assert.equal(health.body?.features?.systemMetrics, true);
+    assert.equal(health.body?.features?.wowAddonsManager, true);
+    assert.equal(health.body?.features?.curseforgeControl, true);
+    assert.equal(health.body?.features?.audioMixer, true);
+
+    const metrics = await requestJson(baseUrl, token, "/api/system/metrics");
+    assert.equal(metrics.status, 200);
+    assert.equal(metrics.body?.ok, true);
+    assert.equal(typeof metrics.body?.cpu?.usagePercent, "number");
+    assert.equal(typeof metrics.body?.memory?.usagePercent, "number");
+
+    const audioMixer = await requestJson(baseUrl, token, "/api/audio/mixer");
+    assert.equal(audioMixer.status, 200);
+    assert.equal(audioMixer.body?.ok, true);
+    assert.ok(Array.isArray(audioMixer.body?.sessions));
+    assert.equal(typeof audioMixer.body?.available, "boolean");
+    if (audioMixer.body.sessions.length > 0) {
+      const firstSession = audioMixer.body.sessions[0];
+      assert.equal(typeof firstSession.sessionKey, "string");
+      assert.equal(typeof firstSession.processName, "string");
+      assert.equal(typeof firstSession.displayName, "string");
+    }
+
+    const curseforgeStatus = await requestJson(baseUrl, token, "/api/curseforge/status");
+    assert.equal(curseforgeStatus.status, 200);
+    assert.equal(curseforgeStatus.body?.ok, true);
+    assert.equal(typeof curseforgeStatus.body?.installed, "boolean");
+    assert.equal(typeof curseforgeStatus.body?.running, "boolean");
+
+    const wowAddons = await requestJson(baseUrl, token, "/api/wow/addons");
+    assert.equal(wowAddons.status, 200);
+    assert.equal(wowAddons.body?.ok, true);
+    assert.ok(Array.isArray(wowAddons.body?.items));
+    assert.ok(wowAddons.body.items.some((item) => item.folder === "MyAddon"));
+
+    const disableAddon = await requestJson(baseUrl, token, "/api/wow/addons/toggle", {
+      method: "POST",
+      body: { key: "MyAddon", enabled: false }
+    });
+    assert.equal(disableAddon.status, 200);
+    assert.equal(disableAddon.body?.ok, true);
+    assert.equal(disableAddon.body?.changed, true);
+    assert.equal(disableAddon.body?.toKey, "MyAddon.disabled");
+
+    const enableAddon = await requestJson(baseUrl, token, "/api/wow/addons/toggle", {
+      method: "POST",
+      body: { key: "MyAddon.disabled", enabled: true }
+    });
+    assert.equal(enableAddon.status, 200);
+    assert.equal(enableAddon.body?.ok, true);
+    assert.equal(enableAddon.body?.changed, true);
+    assert.equal(enableAddon.body?.toKey, "MyAddon");
 
     const settings = await requestJson(baseUrl, token, "/api/settings");
     assert.equal(settings.status, 200);

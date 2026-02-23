@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leistungs-Overlay</title>
+  <style>
+    :root {
+      --bg0: #050911;
+      --bg1: #0b1828;
+      --bg2: #12243a;
+      --card: rgba(11, 20, 33, 0.86);
+      --line: rgba(186, 220, 255, 0.2);
+      --text: #ebf6ff;
+      --muted: rgba(210, 227, 246, 0.78);
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --accent: #38bdf8;
+      --accent2: #22d3ee;
+      --radius: 18px;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Bahnschrift", "Segoe UI Variable", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(1100px 700px at 8% -10%, rgba(56,189,248,.2), transparent 62%),
+        radial-gradient(1200px 740px at 105% -10%, rgba(34,211,238,.18), transparent 58%),
+        linear-gradient(165deg, var(--bg0), var(--bg1) 48%, var(--bg2));
+    }
+
+    .app {
+      min-height: 100%;
+      padding: 16px;
+      display: grid;
+      place-items: start center;
+    }
+
+    .panel {
+      width: min(1220px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--card);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .head {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(132, 198, 255, 0.17), rgba(29, 46, 70, 0.36));
+      display: grid;
+      gap: 12px;
+    }
+
+    .headTop {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .headRight {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .titleWrap strong {
+      display: block;
+      font-size: 21px;
+      letter-spacing: .4px;
+    }
+
+    .titleWrap span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(2, 10, 17, 0.46);
+      min-height: 36px;
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--warn);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+    .dot.err { background: var(--err); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+
+    .tokenRow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input, button {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      min-height: 40px;
+      padding: 9px 12px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    input {
+      flex: 1;
+      min-width: 260px;
+      background: rgba(0, 0, 0, 0.24);
+      outline: 0;
+    }
+
+    button {
+      background: rgba(188, 228, 255, 0.1);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button.primary {
+      border-color: rgba(56, 189, 248, 0.6);
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.3), rgba(56, 189, 248, 0.1));
+    }
+
+    .embedOnly[hidden] {
+      display: none !important;
+    }
+
+    .body {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(140, 175, 210, 0.06));
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      min-height: 200px;
+    }
+
+    .cardTitle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+    }
+
+    .valueBig {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      line-height: 1.1;
+    }
+
+    .sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .ringRow {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .ring {
+      --pct: 0;
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background:
+        radial-gradient(farthest-side, rgba(7, 15, 24, 0.95) 68%, transparent 70%),
+        conic-gradient(var(--accent2) calc(var(--pct) * 1%), rgba(255,255,255,.12) 0);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.14);
+    }
+
+    .ring span {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .sparkWrap {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.24);
+      padding: 6px;
+    }
+
+    svg.spark {
+      width: 100%;
+      height: 60px;
+      display: block;
+    }
+
+    .spark polyline {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .kv strong {
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .hint {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.9;
+    }
+
+    @media (max-width: 700px) {
+      .app { padding: 8px; }
+      .panel { border-radius: 14px; }
+      .head, .body { padding: 10px; }
+      .valueBig { font-size: 28px; }
+      .ring { width: 76px; height: 76px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <div class="head">
+        <div class="headTop">
+          <div class="titleWrap">
+            <strong>Leistungs-Overlay</strong>
+            <span>Live-Systemmetriken fuer Gaming-Session und Stream-Setup</span>
+          </div>
+          <div class="headRight">
+            <div class="chip">
+              <span class="dot" id="dotApi"></span>
+              <span id="apiState">verbinde...</span>
+            </div>
+            <button class="embedOnly" id="backMain" type="button" hidden>Zurueck zur Hauptseite</button>
+          </div>
+        </div>
+        <div class="tokenRow">
+          <input id="tokenInput" placeholder="Token (X-Token) fuer API-Zugriff" />
+          <button class="primary" id="saveToken" type="button">Token speichern</button>
+          <button id="refreshNow" type="button">Jetzt aktualisieren</button>
+        </div>
+      </div>
+
+      <div class="body">
+        <section class="card">
+          <div class="cardTitle"><span>CPU</span><span id="cpuCores">-- Cores</span></div>
+          <div class="ringRow">
+            <div class="ring" id="cpuRing"><span id="cpuRingText">0%</span></div>
+            <div>
+              <div class="valueBig" id="cpuValue">0.0%</div>
+              <div class="sub">Gesamtauslastung</div>
+            </div>
+          </div>
+          <div class="sparkWrap">
+            <svg class="spark" viewBox="0 0 240 60" preserveAspectRatio="none">
+              <polyline id="cpuLine" points=""></polyline>
+            </svg>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle"><span>RAM</span><span id="ramTotal">--</span></div>
+          <div class="ringRow">
+            <div class="ring" id="ramRing"><span id="ramRingText">0%</span></div>
+            <div>
+              <div class="valueBig" id="ramValue">0.0%</div>
+              <div class="sub" id="ramUsed">-- genutzt</div>
+            </div>
+          </div>
+          <div class="sparkWrap">
+            <svg class="spark" viewBox="0 0 240 60" preserveAspectRatio="none">
+              <polyline id="ramLine" points=""></polyline>
+            </svg>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle"><span>Netzwerk Download</span><span id="netSourceDown">--</span></div>
+          <div class="valueBig" id="downRate">0 B/s</div>
+          <div class="sub" id="downTotal">Gesamt: --</div>
+          <div class="sparkWrap">
+            <svg class="spark" viewBox="0 0 240 60" preserveAspectRatio="none">
+              <polyline id="downLine" points=""></polyline>
+            </svg>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle"><span>Netzwerk Upload</span><span id="netSourceUp">--</span></div>
+          <div class="valueBig" id="upRate">0 B/s</div>
+          <div class="sub" id="upTotal">Gesamt: --</div>
+          <div class="sparkWrap">
+            <svg class="spark" viewBox="0 0 240 60" preserveAspectRatio="none">
+              <polyline id="upLine" points=""></polyline>
+            </svg>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle"><span>System</span><span id="hostLabel">--</span></div>
+          <div class="kv">
+            <span>OS</span><strong id="osLabel">--</strong>
+            <span>System Uptime</span><strong id="sysUptime">--</strong>
+            <span>Overlay Uptime</span><strong id="procUptime">--</strong>
+            <span>Node Prozess</span><strong id="pidLabel">--</strong>
+            <span>Heap (Node)</span><strong id="heapLabel">--</strong>
+          </div>
+          <div class="hint">Tipp: Im Gaming-Profil auf Seite "Overlay" kannst du dieses Panel direkt starten.</div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LS_TOKEN_KEY = "sd_token";
+    const MAX_POINTS = 64;
+    const state = {
+      token: "",
+      timer: null,
+      cpuHistory: [],
+      ramHistory: [],
+      downHistory: [],
+      upHistory: []
+    };
+
+    const el = {
+      dotApi: document.getElementById("dotApi"),
+      apiState: document.getElementById("apiState"),
+      backMain: document.getElementById("backMain"),
+      tokenInput: document.getElementById("tokenInput"),
+      saveToken: document.getElementById("saveToken"),
+      refreshNow: document.getElementById("refreshNow"),
+      cpuCores: document.getElementById("cpuCores"),
+      cpuRing: document.getElementById("cpuRing"),
+      cpuRingText: document.getElementById("cpuRingText"),
+      cpuValue: document.getElementById("cpuValue"),
+      cpuLine: document.getElementById("cpuLine"),
+      ramTotal: document.getElementById("ramTotal"),
+      ramRing: document.getElementById("ramRing"),
+      ramRingText: document.getElementById("ramRingText"),
+      ramValue: document.getElementById("ramValue"),
+      ramUsed: document.getElementById("ramUsed"),
+      ramLine: document.getElementById("ramLine"),
+      downRate: document.getElementById("downRate"),
+      downTotal: document.getElementById("downTotal"),
+      downLine: document.getElementById("downLine"),
+      upRate: document.getElementById("upRate"),
+      upTotal: document.getElementById("upTotal"),
+      upLine: document.getElementById("upLine"),
+      netSourceDown: document.getElementById("netSourceDown"),
+      netSourceUp: document.getElementById("netSourceUp"),
+      hostLabel: document.getElementById("hostLabel"),
+      osLabel: document.getElementById("osLabel"),
+      sysUptime: document.getElementById("sysUptime"),
+      procUptime: document.getElementById("procUptime"),
+      pidLabel: document.getElementById("pidLabel"),
+      heapLabel: document.getElementById("heapLabel")
+    };
+
+    function setApiState(text, cls) {
+      el.apiState.textContent = text;
+      el.dotApi.className = `dot ${cls || ""}`.trim();
+    }
+
+    function parseTokenFromUrl() {
+      try {
+        const url = new URL(window.location.href);
+        return String(url.searchParams.get("token") || "").trim();
+      } catch {
+        return "";
+      }
+    }
+
+    function isEmbeddedMode() {
+      try {
+        const url = new URL(window.location.href);
+        return String(url.searchParams.get("embed") || "").trim() === "1";
+      } catch {
+        return false;
+      }
+    }
+
+    function postOverlayMessage(type) {
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ source: "streamdeck-overlay", type }, window.location.origin);
+        }
+      } catch {
+        // ignore messaging failures
+      }
+    }
+
+    function formatBytes(value) {
+      const n = Number(value) || 0;
+      const units = ["B", "KB", "MB", "GB", "TB"];
+      let current = n;
+      let idx = 0;
+      while (current >= 1024 && idx < units.length - 1) {
+        current /= 1024;
+        idx += 1;
+      }
+      const digits = current >= 100 ? 0 : current >= 10 ? 1 : 2;
+      return `${current.toFixed(digits)} ${units[idx]}`;
+    }
+
+    function formatRate(value) {
+      return `${formatBytes(value)}/s`;
+    }
+
+    function formatDuration(seconds) {
+      const s = Math.max(0, Math.floor(Number(seconds) || 0));
+      const d = Math.floor(s / 86400);
+      const h = Math.floor((s % 86400) / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      if (d > 0) return `${d}d ${h}h ${m}m`;
+      if (h > 0) return `${h}h ${m}m ${sec}s`;
+      if (m > 0) return `${m}m ${sec}s`;
+      return `${sec}s`;
+    }
+
+    function pushHistory(list, value) {
+      list.push(Number(value) || 0);
+      if (list.length > MAX_POINTS) list.shift();
+    }
+
+    function toSparkPoints(values, width = 240, height = 60) {
+      const arr = Array.isArray(values) ? values : [];
+      if (!arr.length) return "";
+      const max = Math.max(1, ...arr);
+      const min = 0;
+      const step = arr.length <= 1 ? width : width / (arr.length - 1);
+      const points = [];
+      for (let i = 0; i < arr.length; i += 1) {
+        const x = step * i;
+        const ratio = (arr[i] - min) / (max - min || 1);
+        const y = height - (ratio * height);
+        points.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+      }
+      return points.join(" ");
+    }
+
+    function applyRing(node, textNode, percent) {
+      const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+      node.style.setProperty("--pct", pct.toFixed(2));
+      textNode.textContent = `${pct.toFixed(0)}%`;
+    }
+
+    async function fetchMetrics() {
+      if (!state.token) {
+        setApiState("token fehlt", "err");
+        return;
+      }
+      const response = await fetch("/api/system/metrics", {
+        method: "GET",
+        headers: { "X-Token": state.token },
+        cache: "no-store"
+      });
+      if (response.status === 401) {
+        setApiState("token ungueltig", "err");
+        throw new Error("Token ungueltig");
+      }
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body || body.ok !== true) {
+        throw new Error(body?.error || `HTTP ${response.status}`);
+      }
+      return body;
+    }
+
+    function renderMetrics(data) {
+      const cpu = data.cpu || {};
+      const memory = data.memory || {};
+      const network = data.network || {};
+      const system = data.system || {};
+      const proc = data.process || {};
+
+      const cpuPct = Number(cpu.usagePercent) || 0;
+      const ramPct = Number(memory.usagePercent) || 0;
+      const downRate = Number(network.rxBytesPerSec) || 0;
+      const upRate = Number(network.txBytesPerSec) || 0;
+
+      pushHistory(state.cpuHistory, cpuPct);
+      pushHistory(state.ramHistory, ramPct);
+      pushHistory(state.downHistory, downRate);
+      pushHistory(state.upHistory, upRate);
+
+      el.cpuCores.textContent = `${Number(cpu.cores) || 1} Cores`;
+      el.cpuValue.textContent = `${cpuPct.toFixed(1)}%`;
+      applyRing(el.cpuRing, el.cpuRingText, cpuPct);
+      el.cpuLine.setAttribute("points", toSparkPoints(state.cpuHistory));
+
+      el.ramTotal.textContent = formatBytes(memory.totalBytes || 0);
+      el.ramValue.textContent = `${ramPct.toFixed(1)}%`;
+      el.ramUsed.textContent = `${formatBytes(memory.usedBytes || 0)} genutzt`;
+      applyRing(el.ramRing, el.ramRingText, ramPct);
+      el.ramLine.setAttribute("points", toSparkPoints(state.ramHistory));
+
+      el.downRate.textContent = formatRate(downRate);
+      el.downTotal.textContent = `Gesamt: ${formatBytes(network.rxTotalBytes || 0)}`;
+      el.downLine.setAttribute("points", toSparkPoints(state.downHistory));
+
+      el.upRate.textContent = formatRate(upRate);
+      el.upTotal.textContent = `Gesamt: ${formatBytes(network.txTotalBytes || 0)}`;
+      el.upLine.setAttribute("points", toSparkPoints(state.upHistory));
+
+      const source = String(network.source || "unbekannt");
+      el.netSourceDown.textContent = source;
+      el.netSourceUp.textContent = source;
+
+      el.hostLabel.textContent = system.hostname || "-";
+      el.osLabel.textContent = `${system.platform || "-"} ${system.release || ""} (${system.arch || "-"})`.trim();
+      el.sysUptime.textContent = formatDuration(system.uptimeSec || 0);
+      el.procUptime.textContent = formatDuration(proc.uptimeSec || 0);
+      el.pidLabel.textContent = `${proc.pid || "-"} | ${proc.nodeVersion || "-"}`;
+      el.heapLabel.textContent = formatBytes(proc.heapUsedBytes || 0);
+    }
+
+    async function tick() {
+      try {
+        const data = await fetchMetrics();
+        renderMetrics(data);
+        setApiState("live", "ok");
+      } catch (error) {
+        const message = String(error?.message || error || "offline");
+        setApiState(message, "err");
+      }
+    }
+
+    function saveToken() {
+      state.token = String(el.tokenInput.value || "").trim();
+      localStorage.setItem(LS_TOKEN_KEY, state.token);
+    }
+
+    function startPolling() {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = setInterval(() => {
+        tick().catch(() => {});
+      }, 1000);
+    }
+
+    function init() {
+      const tokenFromUrl = parseTokenFromUrl();
+      const tokenFromStorage = String(localStorage.getItem(LS_TOKEN_KEY) || "").trim();
+      state.token = tokenFromUrl || tokenFromStorage;
+      el.tokenInput.value = state.token;
+      if (isEmbeddedMode()) {
+        el.backMain.hidden = false;
+      }
+
+      el.backMain.addEventListener("click", () => postOverlayMessage("back-main"));
+
+      el.saveToken.addEventListener("click", () => {
+        saveToken();
+        tick().catch(() => {});
+      });
+
+      el.refreshNow.addEventListener("click", () => {
+        tick().catch(() => {});
+      });
+
+      tick().catch(() => {});
+      startPolling();
+    }
+
+    init();
+  </script>
+</body>
+</html>

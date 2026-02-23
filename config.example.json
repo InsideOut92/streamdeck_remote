@@ -10,9 +10,9 @@
   "wow": {
     "processName": "WowClassic.exe",
     "folders": {
-      "addons": "C:\\Program Files (x86)\\World of Warcraft\\_classic_\\Interface\\AddOns",
-      "logs": "C:\\Program Files (x86)\\World of Warcraft\\_classic_\\Logs",
-      "wtf": "C:\\Program Files (x86)\\World of Warcraft\\_classic_\\WTF"
+      "addons": "C:\\Program Files (x86)\\World of Warcraft\\_anniversary_\\Interface\\AddOns",
+      "logs": "C:\\Program Files (x86)\\World of Warcraft\\_anniversary_\\Logs",
+      "wtf": "C:\\Program Files (x86)\\World of Warcraft\\_anniversary_\\WTF"
     }
   },
   "logging": {

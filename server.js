@@ -18,6 +18,10 @@ const NAMED_ACTIONS = new Set([
   "powershell",
   "browser",
   "discord",
+  "streamingSoundboard",
+  "curseforge",
+  "curseforgeManager",
+  "performanceOverlay",
   "wowStart",
   "openWorkspace",
   "vscode",
@@ -42,12 +46,17 @@ const LOG_LEVELS = Object.freeze({
 const APP_VERSION = readPackageVersion();
 const APP_BUILD = detectBuildStamp();
 const PROCESS_STATUS_CACHE_MS = 3000;
+const NET_METRICS_CACHE_MS = 1000;
 const DRY_RUN = isTruthyEnv(process.env.STREAMDECK_DRY_RUN);
 const DISABLE_AUTODETECT = isTruthyEnv(process.env.STREAMDECK_DISABLE_AUTODETECT);
 const API_FEATURES = Object.freeze({
   logsRecent: true,
   settingsLogging: true,
   settingsImportExport: true,
+  systemMetrics: true,
+  wowAddonsManager: true,
+  curseforgeControl: true,
+  audioMixer: true,
   programResolve: true,
   tileDetails: true,
   dryRun: DRY_RUN,
@@ -593,6 +602,7 @@ function getDefaultProfiles() {
   return [
     { id: "work", label: "Work", pages: [{ id: "main", label: "Main" }, { id: "dev", label: "Dev" }] },
     { id: "wow", label: "WoW", pages: [{ id: "main", label: "Main" }, { id: "addons", label: "Addons" }] },
+    { id: "gaming", label: "Gaming", pages: [{ id: "main", label: "Main" }, { id: "overlay", label: "Overlay" }, { id: "addons", label: "Addons" }] },
     { id: "streaming", label: "Streaming", pages: [{ id: "main", label: "Main" }, { id: "social", label: "Social" }] },
     { id: "fav", label: "Favorites", pages: [{ id: "main", label: "Main" }] }
   ];
@@ -609,8 +619,12 @@ function getDefaultTiles() {
     { id: "wowAddons", profile: "wow", page: "addons", label: "AddOns", subtitle: "Ordner oeffnen", type: "folder", target: "{{wow.folders.addons}}", iconMode: "emoji", icon: "🧩", showIf: "wowRunning", builtin: true },
     { id: "wowLogs", profile: "wow", page: "addons", label: "Logs", subtitle: "Ordner oeffnen", type: "folder", target: "{{wow.folders.logs}}", iconMode: "emoji", icon: "📝", showIf: "wowRunning", builtin: true },
     { id: "wowWtf", profile: "wow", page: "addons", label: "WTF", subtitle: "Ordner oeffnen", type: "folder", target: "{{wow.folders.wtf}}", iconMode: "emoji", icon: "⚙️", showIf: "wowRunning", builtin: true },
+    { id: "gamingPerfOverlay", profile: "gaming", page: "overlay", label: "Leistungs-Overlay", subtitle: "CPU | RAM | Netz live", type: "action", action: "performanceOverlay", iconMode: "emoji", icon: "📊", builtin: true },
+    { id: "gamingCurseForgeManager", profile: "gaming", page: "addons", label: "CurseForge Manager", subtitle: "AddOns verwalten", type: "action", action: "curseforgeManager", iconMode: "emoji", icon: "🧩", builtin: true },
+    { id: "gamingCurseForgeApp", profile: "gaming", page: "addons", label: "CurseForge App", subtitle: "Client starten", type: "action", action: "curseforge", iconMode: "emoji", icon: "🔥", builtin: true },
     { id: "discord", profile: "streaming", page: "social", label: "Discord", subtitle: "Protocol", type: "protocol", target: "discord://", iconMode: "emoji", icon: "💬", builtin: true },
-    { id: "obs", profile: "streaming", page: "main", label: "OBS Studio", subtitle: "Streaming", type: "app", launcherKey: "obs", iconMode: "auto", icon: "🎬", builtin: true }
+    { id: "obs", profile: "streaming", page: "main", label: "OBS Studio", subtitle: "Streaming", type: "app", launcherKey: "obs", iconMode: "auto", icon: "🎬", builtin: true },
+    { id: "streamingSoundboard", profile: "streaming", page: "main", label: "Live Soundboard", subtitle: "App-Audio + Spotify", type: "action", action: "streamingSoundboard", iconMode: "emoji", icon: "🎚️", builtin: true }
   ];
 }
 
@@ -646,13 +660,23 @@ function getDefaultLaunchers(oldConfig) {
         path.join(programFiles, "obs-studio", "bin", "64bit", "obs64.exe"),
         path.join(programFiles86, "obs-studio", "bin", "64bit", "obs64.exe")
       ])
+    },
+    curseforge: {
+      label: "CurseForge",
+      path: "",
+      candidates: uniq([
+        path.join(localAppData, "Programs", "CurseForge Windows", "CurseForge.exe"),
+        path.join(localAppData, "Programs", "CurseForge", "CurseForge.exe"),
+        path.join(programFiles, "Overwolf", "OverwolfLauncher.exe"),
+        path.join(programFiles86, "Overwolf", "OverwolfLauncher.exe")
+      ])
     }
   };
 }
 
 function createDefaultConfig(oldConfig = {}) {
   const wowFolders = oldConfig.wow && oldConfig.wow.folders ? oldConfig.wow.folders : {};
-  const wowBase = path.join(process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)", "World of Warcraft", "_classic_");
+  const wowBase = path.join(process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)", "World of Warcraft", "_anniversary_");
   return {
     host: "0.0.0.0",
     port: 8787,
@@ -694,7 +718,29 @@ function normalizeProfiles(input) {
       : [{ id: "main", label: "Main" }];
     out.push({ id, label, pages: pages.length ? pages : [{ id: "main", label: "Main" }] });
   }
-  return out.length ? out : getDefaultProfiles();
+  if (!out.length) return getDefaultProfiles();
+
+  const profileById = new Map(out.map((p) => [p.id, p]));
+  for (const def of getDefaultProfiles()) {
+    const existing = profileById.get(def.id);
+    if (!existing) {
+      const clone = {
+        id: def.id,
+        label: def.label,
+        pages: def.pages.map((x) => ({ id: x.id, label: x.label }))
+      };
+      out.push(clone);
+      profileById.set(clone.id, clone);
+      continue;
+    }
+
+    const pageById = new Map((existing.pages || []).map((x) => [x.id, x]));
+    for (const defPage of def.pages) {
+      if (!pageById.has(defPage.id)) existing.pages.push({ id: defPage.id, label: defPage.label });
+    }
+  }
+
+  return out;
 }
 function normalizeTile(raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -1133,13 +1179,13 @@ function normalizeHttpUrl(rawInput) {
 
 function setSecurityHeaders(req, res, next) {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("Referrer-Policy", "no-referrer");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'"
   );
   next();
 }
@@ -1148,6 +1194,44 @@ function resolveLauncherPath(key) {
   const launcher = config.launchers && typeof config.launchers === "object" ? config.launchers[key] : null;
   if (!launcher || typeof launcher !== "object") return "";
   return expandEnv(String(launcher.path || "").trim());
+}
+
+function resolveLauncherPathWithCandidates(key) {
+  const direct = resolveLauncherPath(key);
+  if (direct && fileExists(direct)) return direct;
+  const launcher = config.launchers && typeof config.launchers === "object" ? config.launchers[key] : null;
+  if (!launcher || !Array.isArray(launcher.candidates)) return direct;
+  for (const raw of launcher.candidates) {
+    const candidate = expandEnv(String(raw || "").trim());
+    if (!candidate) continue;
+    if (fileExists(candidate)) return candidate;
+  }
+  return direct;
+}
+
+const CURSEFORGE_PROCESS_NAMES = Object.freeze(["CurseForge.exe"]);
+
+function resolveCurseForgeExecutablePath() {
+  const launcher = config.launchers && typeof config.launchers === "object" ? config.launchers.curseforge : null;
+  const candidates = [];
+
+  const configured = resolveLauncherPath("curseforge");
+  if (configured) candidates.push(configured);
+  if (launcher && Array.isArray(launcher.candidates)) {
+    for (const raw of launcher.candidates) {
+      const expanded = expandEnv(String(raw || "").trim());
+      if (expanded) candidates.push(expanded);
+    }
+  }
+
+  const bestMatch = resolveLauncherPathWithCandidates("curseforge");
+  if (bestMatch) candidates.push(bestMatch);
+
+  for (const candidate of uniq(candidates.filter(Boolean))) {
+    if (!fileExists(candidate)) continue;
+    if (path.basename(candidate).toLowerCase() === "curseforge.exe") return candidate;
+  }
+  return "";
 }
 
 function resolveTileTarget(tile) {
@@ -1194,6 +1278,27 @@ function runNamedAction(name, payload = {}) {
   }
   if (action === "discord") {
     startViaCmd("discord://");
+    return;
+  }
+  if (action === "streamingSoundboard") {
+    startViaCmd(`http://localhost:${config.port}/StreamDeck.html?profile=streaming&page=main&panel=streamingSoundboard`);
+    return;
+  }
+  if (action === "curseforge") {
+    const exe = resolveCurseForgeExecutablePath();
+    if (exe && fileExists(exe)) {
+      startViaCmd(exe);
+      return;
+    }
+    startViaCmd("https://www.curseforge.com/download/app");
+    return;
+  }
+  if (action === "curseforgeManager") {
+    startViaCmd(`http://localhost:${config.port}/StreamDeck.html?profile=gaming&page=main&panel=curseforgeManager`);
+    return;
+  }
+  if (action === "performanceOverlay") {
+    startViaCmd(`http://localhost:${config.port}/StreamDeck.html?profile=gaming&page=main&panel=performanceOverlay`);
     return;
   }
   if (action === "wowStart") {
@@ -1315,6 +1420,727 @@ async function runPowerShell(script, args = [], timeoutMs = 10000, options = {})
   }
 }
 
+function parseJsonPayload(text) {
+  const raw = String(text || "").trim();
+  if (!raw) throw new Error("Leere JSON-Antwort");
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Continue with fallback extraction.
+  }
+
+  const firstObject = raw.indexOf("{");
+  const lastObject = raw.lastIndexOf("}");
+  if (firstObject >= 0 && lastObject > firstObject) {
+    const fragment = raw.slice(firstObject, lastObject + 1);
+    try {
+      return JSON.parse(fragment);
+    } catch {
+      // ignore and continue
+    }
+  }
+
+  const firstArray = raw.indexOf("[");
+  const lastArray = raw.lastIndexOf("]");
+  if (firstArray >= 0 && lastArray > firstArray) {
+    const fragment = raw.slice(firstArray, lastArray + 1);
+    return JSON.parse(fragment);
+  }
+  throw new Error(`JSON konnte nicht gelesen werden: ${safeTrim(raw, 260)}`);
+}
+
+async function runPowerShellJson(script, args = [], timeoutMs = 12000, options = {}) {
+  const output = await runPowerShell(script, args, timeoutMs, options);
+  return parseJsonPayload(output);
+}
+
+const AUDIO_MIXER_BRIDGE_CSHARP = String.raw`
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+namespace StreamDeckAudio {
+  public enum EDataFlow { eRender = 0, eCapture = 1, eAll = 2 }
+  public enum ERole { eConsole = 0, eMultimedia = 1, eCommunications = 2 }
+  public enum AudioSessionState { Inactive = 0, Active = 1, Expired = 2 }
+
+  [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IMMDeviceEnumerator {
+    int NotImpl1();
+    int GetDefaultAudioEndpoint(EDataFlow dataFlow, ERole role, out IMMDevice ppDevice);
+  }
+
+  [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IMMDevice {
+    int Activate(ref Guid iid, int dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
+  }
+
+  [Guid("77AA99A0-1BD6-484F-8BC7-2C654C9A9B6F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioSessionManager2 {
+    int NotImpl1();
+    int NotImpl2();
+    int GetSessionEnumerator(out IAudioSessionEnumerator SessionEnum);
+  }
+
+  [Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioSessionEnumerator {
+    int GetCount(out int SessionCount);
+    int GetSession(int SessionCount, out IAudioSessionControl Session);
+  }
+
+  [Guid("F4B1A599-7266-4319-A8CA-E70ACB11E8CD"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioSessionControl {
+    int GetState(out AudioSessionState pRetVal);
+    int GetDisplayName([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+    int SetDisplayName([MarshalAs(UnmanagedType.LPWStr)] string Value, ref Guid EventContext);
+    int GetIconPath([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+    int SetIconPath([MarshalAs(UnmanagedType.LPWStr)] string Value, ref Guid EventContext);
+    int GetGroupingParam(out Guid pRetVal);
+    int SetGroupingParam(ref Guid Override, ref Guid EventContext);
+    int RegisterAudioSessionNotification(IntPtr NewNotifications);
+    int UnregisterAudioSessionNotification(IntPtr NewNotifications);
+  }
+
+  [Guid("bfb7ff88-7239-4fc9-8fa2-07c950be9c6d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IAudioSessionControl2 {
+    int GetState(out AudioSessionState pRetVal);
+    int GetDisplayName([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+    int SetDisplayName([MarshalAs(UnmanagedType.LPWStr)] string Value, ref Guid EventContext);
+    int GetIconPath([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+    int SetIconPath([MarshalAs(UnmanagedType.LPWStr)] string Value, ref Guid EventContext);
+    int GetGroupingParam(out Guid pRetVal);
+    int SetGroupingParam(ref Guid Override, ref Guid EventContext);
+    int RegisterAudioSessionNotification(IntPtr NewNotifications);
+    int UnregisterAudioSessionNotification(IntPtr NewNotifications);
+    int GetSessionIdentifier([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+    int GetSessionInstanceIdentifier([MarshalAs(UnmanagedType.LPWStr)] out string pRetVal);
+    int GetProcessId(out uint pRetVal);
+    int IsSystemSoundsSession();
+    int SetDuckingPreference(bool optOut);
+  }
+
+  [Guid("87CE5498-68D6-44E5-9215-6DA47EF883D8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface ISimpleAudioVolume {
+    int SetMasterVolume(float fLevel, ref Guid EventContext);
+    int GetMasterVolume(out float pfLevel);
+    int SetMute(bool bMute, ref Guid EventContext);
+    int GetMute(out bool pbMute);
+  }
+
+  [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
+  class MMDeviceEnumeratorComObject { }
+
+  public sealed class SessionSnapshot {
+    public int Pid { get; set; }
+    public string ProcessName { get; set; }
+    public string DisplayName { get; set; }
+    public string SessionIdentifier { get; set; }
+    public string SessionInstanceIdentifier { get; set; }
+    public string SessionKey { get; set; }
+    public string State { get; set; }
+    public double VolumePercent { get; set; }
+    public bool Muted { get; set; }
+    public bool HasWindow { get; set; }
+  }
+
+  public static class CoreAudioBridge {
+    const int CLSCTX_ALL = 23;
+    const uint WM_APPCOMMAND = 0x0319;
+    const int APPCOMMAND_MEDIA_PLAY_PAUSE = 14;
+    const byte VK_MEDIA_PLAY_PAUSE = 0xB3;
+    const int KEYEVENTF_KEYUP = 0x0002;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    static extern void keybd_event(byte bVk, byte bScan, int dwFlags, int dwExtraInfo);
+
+    static IAudioSessionEnumerator CreateSessionEnumerator(ERole role) {
+      IMMDeviceEnumerator deviceEnumerator = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
+      if (deviceEnumerator == null) throw new InvalidOperationException("IMMDeviceEnumerator unavailable");
+
+      IMMDevice device;
+      Marshal.ThrowExceptionForHR(deviceEnumerator.GetDefaultAudioEndpoint(EDataFlow.eRender, role, out device));
+      if (device == null) throw new InvalidOperationException("Default audio endpoint unavailable");
+
+      object managerObj;
+      Guid iid = typeof(IAudioSessionManager2).GUID;
+      Marshal.ThrowExceptionForHR(device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out managerObj));
+      IAudioSessionManager2 manager = managerObj as IAudioSessionManager2;
+      if (manager == null) throw new InvalidOperationException("IAudioSessionManager2 unavailable");
+
+      IAudioSessionEnumerator enumerator;
+      Marshal.ThrowExceptionForHR(manager.GetSessionEnumerator(out enumerator));
+      return enumerator;
+    }
+
+    static string GuessProcessNameFromIdentifier(string sessionIdentifier) {
+      if (string.IsNullOrWhiteSpace(sessionIdentifier)) return "";
+      string raw = sessionIdentifier.Trim();
+      int exeIndex = raw.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+      if (exeIndex <= 0) return "";
+
+      int startBackslash = raw.LastIndexOf('\\', exeIndex);
+      int startSlash = raw.LastIndexOf('/', exeIndex);
+      int start = Math.Max(startBackslash, startSlash) + 1;
+      int length = (exeIndex + 4) - start;
+      if (start < 0 || length <= 0 || start + length > raw.Length) return "";
+
+      string fileName = raw.Substring(start, length);
+      if (fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) {
+        fileName = fileName.Substring(0, fileName.Length - 4);
+      }
+      return fileName.Trim();
+    }
+
+    static string BuildSessionKey(int pid, string sessionIdentifier, string sessionInstanceIdentifier, string processName, int fallbackIndex) {
+      if (!string.IsNullOrWhiteSpace(sessionInstanceIdentifier)) return "inst::" + sessionInstanceIdentifier.Trim();
+      if (!string.IsNullOrWhiteSpace(sessionIdentifier)) return "sess::" + sessionIdentifier.Trim();
+
+      string proc = processName ?? "";
+      return string.Format("pid::{0}:{1}:{2}", pid, proc.Trim().ToLowerInvariant(), fallbackIndex);
+    }
+
+    static bool SessionMatchesTarget(
+      int currentPid,
+      string currentSessionIdentifier,
+      string currentSessionInstanceIdentifier,
+      string currentProcessName,
+      int fallbackIndex,
+      int targetPid,
+      string targetSessionKey
+    ) {
+      string target = targetSessionKey ?? "";
+      if (!string.IsNullOrWhiteSpace(target)) {
+        string key = BuildSessionKey(currentPid, currentSessionIdentifier, currentSessionInstanceIdentifier, currentProcessName, fallbackIndex);
+        if (string.Equals(key, target, StringComparison.OrdinalIgnoreCase)) return true;
+        if (!string.IsNullOrWhiteSpace(currentSessionIdentifier)
+          && string.Equals(currentSessionIdentifier, target, StringComparison.OrdinalIgnoreCase)) return true;
+        if (!string.IsNullOrWhiteSpace(currentSessionInstanceIdentifier)
+          && string.Equals(currentSessionInstanceIdentifier, target, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+      }
+
+      return targetPid > 0 && currentPid == targetPid;
+    }
+
+    public static List<SessionSnapshot> ListSessions() {
+      List<SessionSnapshot> result = new List<SessionSnapshot>();
+      HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      ERole[] roles = new ERole[] { ERole.eMultimedia, ERole.eConsole, ERole.eCommunications };
+
+      for (int roleIndex = 0; roleIndex < roles.Length; roleIndex++) {
+        IAudioSessionEnumerator enumerator = null;
+        try {
+          enumerator = CreateSessionEnumerator(roles[roleIndex]);
+        } catch {
+          continue;
+        }
+
+        int count = 0;
+        Marshal.ThrowExceptionForHR(enumerator.GetCount(out count));
+
+        for (int i = 0; i < count; i++) {
+          IAudioSessionControl control;
+          Marshal.ThrowExceptionForHR(enumerator.GetSession(i, out control));
+          if (control == null) continue;
+
+          IAudioSessionControl2 control2 = control as IAudioSessionControl2;
+          ISimpleAudioVolume volume = control as ISimpleAudioVolume;
+          if (control2 == null || volume == null) continue;
+
+          AudioSessionState state = AudioSessionState.Inactive;
+          try { control.GetState(out state); } catch { }
+
+          uint pidRaw = 0;
+          try { control2.GetProcessId(out pidRaw); } catch { }
+          int pid = unchecked((int)pidRaw);
+
+          string displayName = "";
+          try { control.GetDisplayName(out displayName); } catch { displayName = ""; }
+
+          string sessionIdentifier = "";
+          try { control2.GetSessionIdentifier(out sessionIdentifier); } catch { sessionIdentifier = ""; }
+
+          string sessionInstanceIdentifier = "";
+          try { control2.GetSessionInstanceIdentifier(out sessionInstanceIdentifier); } catch { sessionInstanceIdentifier = ""; }
+
+          float volumeRaw = 0f;
+          try { volume.GetMasterVolume(out volumeRaw); } catch { }
+          bool muted = false;
+          try { volume.GetMute(out muted); } catch { }
+
+          string processName = "";
+          bool hasWindow = false;
+          if (pid > 0) {
+            try {
+              Process process = Process.GetProcessById(pid);
+              processName = process.ProcessName ?? "";
+              hasWindow = process.MainWindowHandle != IntPtr.Zero;
+            } catch {
+              processName = "";
+            }
+          }
+          if (string.IsNullOrWhiteSpace(processName)) {
+            processName = GuessProcessNameFromIdentifier(sessionIdentifier);
+          }
+          if (string.IsNullOrWhiteSpace(processName) && pid == 0) {
+            processName = "System";
+          }
+
+          string dedupeKey = !string.IsNullOrWhiteSpace(sessionInstanceIdentifier)
+            ? "inst::" + sessionInstanceIdentifier.Trim()
+            : !string.IsNullOrWhiteSpace(sessionIdentifier)
+              ? "sess::" + sessionIdentifier.Trim()
+              : string.Format("pid::{0}:{1}:{2}", pid, (processName ?? "").Trim().ToLowerInvariant(), i);
+          if (!seen.Add(dedupeKey)) continue;
+
+          int fallbackIndex = roleIndex * 10000 + i;
+          result.Add(new SessionSnapshot {
+            Pid = pid,
+            ProcessName = processName ?? "",
+            DisplayName = displayName ?? "",
+            SessionIdentifier = sessionIdentifier ?? "",
+            SessionInstanceIdentifier = sessionInstanceIdentifier ?? "",
+            SessionKey = BuildSessionKey(pid, sessionIdentifier, sessionInstanceIdentifier, processName, fallbackIndex),
+            State = state.ToString(),
+            VolumePercent = Math.Round(Math.Max(0.0, Math.Min(1.0, volumeRaw)) * 100.0, 1),
+            Muted = muted,
+            HasWindow = hasWindow
+          });
+        }
+      }
+
+      return result;
+    }
+
+    public static bool SetVolume(int pid, string sessionKey, float level, out string message) {
+      message = "";
+      if (pid <= 0 && string.IsNullOrWhiteSpace(sessionKey)) {
+        message = "pid oder sessionKey fehlt";
+        return false;
+      }
+
+      float clamped = Math.Max(0f, Math.Min(1f, level));
+      Guid context = Guid.Empty;
+      int changed = 0;
+      ERole[] roles = new ERole[] { ERole.eMultimedia, ERole.eConsole, ERole.eCommunications };
+
+      for (int roleIndex = 0; roleIndex < roles.Length; roleIndex++) {
+        IAudioSessionEnumerator enumerator = null;
+        try {
+          enumerator = CreateSessionEnumerator(roles[roleIndex]);
+        } catch {
+          continue;
+        }
+
+        int count = 0;
+        Marshal.ThrowExceptionForHR(enumerator.GetCount(out count));
+
+        for (int i = 0; i < count; i++) {
+          IAudioSessionControl control;
+          Marshal.ThrowExceptionForHR(enumerator.GetSession(i, out control));
+          if (control == null) continue;
+
+          IAudioSessionControl2 control2 = control as IAudioSessionControl2;
+          ISimpleAudioVolume volume = control as ISimpleAudioVolume;
+          if (control2 == null || volume == null) continue;
+
+          uint pidRaw = 0;
+          try { control2.GetProcessId(out pidRaw); } catch { }
+          int currentPid = unchecked((int)pidRaw);
+
+          string sessionIdentifier = "";
+          try { control2.GetSessionIdentifier(out sessionIdentifier); } catch { sessionIdentifier = ""; }
+
+          string sessionInstanceIdentifier = "";
+          try { control2.GetSessionInstanceIdentifier(out sessionInstanceIdentifier); } catch { sessionInstanceIdentifier = ""; }
+
+          string processName = "";
+          if (currentPid > 0) {
+            try {
+              Process process = Process.GetProcessById(currentPid);
+              processName = process.ProcessName ?? "";
+            } catch {
+              processName = "";
+            }
+          }
+          if (string.IsNullOrWhiteSpace(processName)) {
+            processName = GuessProcessNameFromIdentifier(sessionIdentifier);
+          }
+
+          int fallbackIndex = roleIndex * 10000 + i;
+          if (!SessionMatchesTarget(currentPid, sessionIdentifier, sessionInstanceIdentifier, processName, fallbackIndex, pid, sessionKey)) continue;
+
+          volume.SetMasterVolume(clamped, ref context);
+          changed++;
+        }
+      }
+
+      if (changed <= 0) {
+        message = "Keine Session fuer Ziel gefunden";
+        return false;
+      }
+      message = "OK";
+      return true;
+    }
+
+    public static bool SetMute(int pid, string sessionKey, bool mute, out string message) {
+      message = "";
+      if (pid <= 0 && string.IsNullOrWhiteSpace(sessionKey)) {
+        message = "pid oder sessionKey fehlt";
+        return false;
+      }
+
+      Guid context = Guid.Empty;
+      int changed = 0;
+      ERole[] roles = new ERole[] { ERole.eMultimedia, ERole.eConsole, ERole.eCommunications };
+
+      for (int roleIndex = 0; roleIndex < roles.Length; roleIndex++) {
+        IAudioSessionEnumerator enumerator = null;
+        try {
+          enumerator = CreateSessionEnumerator(roles[roleIndex]);
+        } catch {
+          continue;
+        }
+
+        int count = 0;
+        Marshal.ThrowExceptionForHR(enumerator.GetCount(out count));
+
+        for (int i = 0; i < count; i++) {
+          IAudioSessionControl control;
+          Marshal.ThrowExceptionForHR(enumerator.GetSession(i, out control));
+          if (control == null) continue;
+
+          IAudioSessionControl2 control2 = control as IAudioSessionControl2;
+          ISimpleAudioVolume volume = control as ISimpleAudioVolume;
+          if (control2 == null || volume == null) continue;
+
+          uint pidRaw = 0;
+          try { control2.GetProcessId(out pidRaw); } catch { }
+          int currentPid = unchecked((int)pidRaw);
+
+          string sessionIdentifier = "";
+          try { control2.GetSessionIdentifier(out sessionIdentifier); } catch { sessionIdentifier = ""; }
+
+          string sessionInstanceIdentifier = "";
+          try { control2.GetSessionInstanceIdentifier(out sessionInstanceIdentifier); } catch { sessionInstanceIdentifier = ""; }
+
+          string processName = "";
+          if (currentPid > 0) {
+            try {
+              Process process = Process.GetProcessById(currentPid);
+              processName = process.ProcessName ?? "";
+            } catch {
+              processName = "";
+            }
+          }
+          if (string.IsNullOrWhiteSpace(processName)) {
+            processName = GuessProcessNameFromIdentifier(sessionIdentifier);
+          }
+
+          int fallbackIndex = roleIndex * 10000 + i;
+          if (!SessionMatchesTarget(currentPid, sessionIdentifier, sessionInstanceIdentifier, processName, fallbackIndex, pid, sessionKey)) continue;
+
+          volume.SetMute(mute, ref context);
+          changed++;
+        }
+      }
+
+      if (changed <= 0) {
+        message = "Keine Session fuer Ziel gefunden";
+        return false;
+      }
+      message = "OK";
+      return true;
+    }
+
+    public static bool SendPlayPause(int pid, out string message) {
+      message = "";
+      IntPtr targetWindow = IntPtr.Zero;
+
+      if (pid > 0) {
+        try {
+          Process process = Process.GetProcessById(pid);
+          targetWindow = process.MainWindowHandle;
+        } catch { }
+      }
+
+      if (targetWindow != IntPtr.Zero) {
+        IntPtr lParam = new IntPtr(APPCOMMAND_MEDIA_PLAY_PAUSE << 16);
+        bool posted = PostMessage(targetWindow, WM_APPCOMMAND, targetWindow, lParam);
+        if (posted) {
+          message = "APPCOMMAND gesendet";
+          return true;
+        }
+      }
+
+      // Fallback to global media key (active media session)
+      keybd_event(VK_MEDIA_PLAY_PAUSE, 0, 0, 0);
+      keybd_event(VK_MEDIA_PLAY_PAUSE, 0, KEYEVENTF_KEYUP, 0);
+      message = "Globales Media Play/Pause gesendet";
+      return true;
+    }
+  }
+}
+`;
+const AUDIO_MIXER_BRIDGE_CSHARP_B64 = Buffer.from(AUDIO_MIXER_BRIDGE_CSHARP, "utf8").toString("base64");
+
+function toPowerShellNumberLiteral(value, fallback = 0) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(fallback);
+  return String(num).replace(",", ".");
+}
+
+function audioMixerPowerShellScript(action = "snapshot", targetPid = 0, value = 0, flag = "", sessionKey = "") {
+  const actionLit = toPowerShellSingleQuoted(String(action || ""));
+  const targetPidLit = String(Number.isFinite(Number(targetPid)) ? Math.max(0, Math.trunc(Number(targetPid))) : 0);
+  const valueLit = toPowerShellNumberLiteral(value, 0);
+  const flagLit = toPowerShellSingleQuoted(String(flag || ""));
+  const sessionKeyLit = toPowerShellSingleQuoted(String(sessionKey || ""));
+  return `
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+if (-not ("StreamDeckAudio.CoreAudioBridge" -as [type])) {
+  $code = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('${AUDIO_MIXER_BRIDGE_CSHARP_B64}'))
+  Add-Type -Language CSharp -TypeDefinition $code
+}
+
+$action = ${actionLit}
+$targetPid = [int]${targetPidLit}
+$value = [double]${valueLit}
+$flag = ${flagLit}
+$sessionKey = [string]${sessionKeyLit}
+
+if ($action -eq 'snapshot') {
+  $sessions = @([StreamDeckAudio.CoreAudioBridge]::ListSessions())
+  $spotify = $sessions | Where-Object { [string]$_.ProcessName -match '(?i)spotify' } | Select-Object -First 1
+  [pscustomobject]@{
+    ok = $true
+    sessions = $sessions
+    spotify = $spotify
+  } | ConvertTo-Json -Depth 8 -Compress
+  exit 0
+}
+
+if ($action -eq 'setVolume') {
+  $msg = ''
+  $ok = [StreamDeckAudio.CoreAudioBridge]::SetVolume($targetPid, [string]$sessionKey, [float]([Math]::Max(0, [Math]::Min(100, $value)) / 100.0), [ref]$msg)
+  [pscustomobject]@{
+    ok = [bool]$ok
+    message = [string]$msg
+    pid = $targetPid
+    sessionKey = [string]$sessionKey
+    volumePercent = [Math]::Round([Math]::Max(0, [Math]::Min(100, $value)), 1)
+  } | ConvertTo-Json -Depth 8 -Compress
+  exit 0
+}
+
+if ($action -eq 'setMute') {
+  $mute = $false
+  if ([string]$flag -match '^(1|true|yes|on)$') { $mute = $true }
+  $msg = ''
+  $ok = [StreamDeckAudio.CoreAudioBridge]::SetMute($targetPid, [string]$sessionKey, [bool]$mute, [ref]$msg)
+  [pscustomobject]@{
+    ok = [bool]$ok
+    message = [string]$msg
+    pid = $targetPid
+    sessionKey = [string]$sessionKey
+    muted = [bool]$mute
+  } | ConvertTo-Json -Depth 8 -Compress
+  exit 0
+}
+
+if ($action -eq 'playPause') {
+  $msg = ''
+  $ok = [StreamDeckAudio.CoreAudioBridge]::SendPlayPause($targetPid, [ref]$msg)
+  [pscustomobject]@{
+    ok = [bool]$ok
+    message = [string]$msg
+    pid = $targetPid
+  } | ConvertTo-Json -Depth 8 -Compress
+  exit 0
+}
+
+throw "unknown audio action: $action"
+`;
+}
+
+function normalizeAudioSession(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const pid = Number(raw.Pid ?? raw.pid ?? 0);
+  const processName = safeTrim(raw.ProcessName ?? raw.processName ?? "", 120);
+  const displayName = safeTrim(raw.DisplayName ?? raw.displayName ?? "", 160);
+  const sessionIdentifier = safeTrim(raw.SessionIdentifier ?? raw.sessionIdentifier ?? "", 260);
+  const sessionInstanceIdentifier = safeTrim(raw.SessionInstanceIdentifier ?? raw.sessionInstanceIdentifier ?? "", 260);
+  const sessionKey = safeTrim(raw.SessionKey ?? raw.sessionKey ?? "", 360);
+  const state = safeTrim(raw.State ?? raw.state ?? "", 40);
+  const muted = Boolean(raw.Muted ?? raw.muted);
+  const hasWindow = Boolean(raw.HasWindow ?? raw.hasWindow);
+  const volumePercentRaw = Number(raw.VolumePercent ?? raw.volumePercent ?? 0);
+  const volumePercent = Number.isFinite(volumePercentRaw)
+    ? Math.max(0, Math.min(100, Math.round(volumePercentRaw * 10) / 10))
+    : 0;
+  if (!Number.isFinite(pid) || pid < 0) return null;
+  if (!pid && !processName && !displayName && !sessionKey && !sessionIdentifier && !sessionInstanceIdentifier) return null;
+  const normalizedSessionKey = sessionKey || sessionInstanceIdentifier || sessionIdentifier || "";
+  return {
+    pid: Math.trunc(pid),
+    processName,
+    displayName,
+    sessionIdentifier,
+    sessionInstanceIdentifier,
+    sessionKey: normalizedSessionKey,
+    state,
+    volumePercent,
+    muted,
+    hasWindow
+  };
+}
+
+const AUDIO_MIXER_CACHE_MS = 1200;
+const audioMixerCache = { ts: 0, payload: null };
+
+function clearAudioMixerCache() {
+  audioMixerCache.ts = 0;
+  audioMixerCache.payload = null;
+}
+
+async function readAudioMixerSnapshot(options = {}) {
+  const useCache = options.useCache !== false;
+  const now = Date.now();
+  if (useCache && audioMixerCache.payload && now - audioMixerCache.ts < AUDIO_MIXER_CACHE_MS) {
+    return audioMixerCache.payload;
+  }
+
+  if (process.platform !== "win32") {
+    const fallback = {
+      available: false,
+      platform: process.platform,
+      sessions: [],
+      spotify: null
+    };
+    audioMixerCache.ts = now;
+    audioMixerCache.payload = fallback;
+    return fallback;
+  }
+
+  let parsed = null;
+  try {
+    parsed = await runPowerShellJson(audioMixerPowerShellScript("snapshot", 0, 0, ""), [], 25000);
+  } catch (error) {
+    const degraded = {
+      available: false,
+      platform: process.platform,
+      sessions: [],
+      spotify: null,
+      error: safeTrim(error?.message || String(error), 240)
+    };
+    audioMixerCache.ts = now;
+    audioMixerCache.payload = degraded;
+    return degraded;
+  }
+
+  const list = Array.isArray(parsed?.sessions)
+    ? parsed.sessions.map(normalizeAudioSession).filter(Boolean)
+    : [];
+  list.sort((a, b) => {
+    const byName = String(a.processName || a.displayName).localeCompare(String(b.processName || b.displayName), "de", { sensitivity: "base" });
+    if (byName !== 0) return byName;
+    return a.pid - b.pid;
+  });
+
+  const spotify = list.find((x) => /spotify/i.test(`${x.processName} ${x.displayName}`)) || null;
+  const payload = {
+    available: true,
+    platform: process.platform,
+    sessions: list,
+    spotify: spotify
+      ? {
+          pid: spotify.pid,
+          sessionKey: spotify.sessionKey || spotify.sessionInstanceIdentifier || spotify.sessionIdentifier || "",
+          processName: spotify.processName,
+          displayName: spotify.displayName,
+          muted: spotify.muted,
+          volumePercent: spotify.volumePercent
+        }
+      : null
+  };
+
+  audioMixerCache.ts = now;
+  audioMixerCache.payload = payload;
+  return payload;
+}
+
+function sanitizeOptionalPid(value) {
+  const pid = Number(value);
+  if (!Number.isFinite(pid) || pid <= 0 || pid > 2_147_483_647) return 0;
+  return Math.trunc(pid);
+}
+
+function sanitizeAudioSessionKey(value) {
+  if (typeof value !== "string") return "";
+  const key = safeTrim(value, 360);
+  if (!key) return "";
+  if (/[\r\n]/.test(key)) throw new Error("ungueltiger sessionKey");
+  return key;
+}
+
+function sanitizeAudioSessionTarget(body = {}) {
+  const pid = sanitizeOptionalPid(body?.pid);
+  const sessionKey = sanitizeAudioSessionKey(body?.sessionKey);
+  if (!pid && !sessionKey) throw new Error("ungueltiges Session-Ziel");
+  return { pid, sessionKey };
+}
+
+function sanitizeVolumePercent(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) throw new Error("ungueltige Lautstaerke");
+  return Math.max(0, Math.min(100, Math.round(num * 10) / 10));
+}
+
+async function setAudioSessionVolume(pid, volumePercent, sessionKey = "") {
+  if (process.platform !== "win32") throw new Error("Audio-Mixer ist nur unter Windows verfuegbar.");
+  const parsed = await runPowerShellJson(
+    audioMixerPowerShellScript("setVolume", pid || 0, volumePercent, "", sessionKey),
+    [],
+    20000
+  );
+  if (!parsed || parsed.ok !== true) throw new Error(parsed?.message || "Lautstaerke konnte nicht gesetzt werden");
+  clearAudioMixerCache();
+  return parsed;
+}
+
+async function setAudioSessionMute(pid, muted, sessionKey = "") {
+  if (process.platform !== "win32") throw new Error("Audio-Mixer ist nur unter Windows verfuegbar.");
+  const parsed = await runPowerShellJson(
+    audioMixerPowerShellScript("setMute", pid || 0, 0, muted ? "true" : "false", sessionKey),
+    [],
+    20000
+  );
+  if (!parsed || parsed.ok !== true) throw new Error(parsed?.message || "Mute konnte nicht gesetzt werden");
+  clearAudioMixerCache();
+  return parsed;
+}
+
+async function sendAudioSessionPlayPause(pid) {
+  if (process.platform !== "win32") throw new Error("Audio-Mixer ist nur unter Windows verfuegbar.");
+  const parsed = await runPowerShellJson(
+    audioMixerPowerShellScript("playPause", pid || 0, 0, ""),
+    [],
+    15000
+  );
+  if (!parsed || parsed.ok !== true) throw new Error(parsed?.message || "Play/Pause fehlgeschlagen");
+  return parsed;
+}
+
+function openSpotifyApp() {
+  startViaCmd("spotify:");
+}
+
 const processStatusCache = new Map();
 async function isProcessRunning(imageName, options = {}) {
   const name = String(imageName || "").trim();
@@ -1350,6 +2176,346 @@ async function isProcessRunning(imageName, options = {}) {
     }
   }
   return running;
+}
+
+function clearProcessStatusCache(processNames = []) {
+  if (!Array.isArray(processNames)) return;
+  for (const name of processNames) {
+    const key = String(name || "").trim().toLowerCase();
+    if (key) processStatusCache.delete(key);
+  }
+}
+
+async function detectRunningProcessName(processNames, options = {}) {
+  const names = Array.isArray(processNames) ? processNames.map((x) => String(x || "").trim()).filter(Boolean) : [];
+  for (const name of names) {
+    if (await isProcessRunning(name, options)) return name;
+  }
+  return "";
+}
+
+async function getCurseForgeStatus(options = {}) {
+  const processName = await detectRunningProcessName(CURSEFORGE_PROCESS_NAMES, options);
+  const configuredPath = resolveLauncherPath("curseforge");
+  const executablePath = resolveCurseForgeExecutablePath();
+  return {
+    configuredPath,
+    executablePath,
+    installed: Boolean(executablePath),
+    running: Boolean(processName),
+    processName: processName || ""
+  };
+}
+
+function startCurseForgeProcess() {
+  const executablePath = resolveCurseForgeExecutablePath();
+  if (!executablePath) {
+    throw new Error("CurseForge.exe nicht gefunden. Bitte in Einstellungen -> Launcher den CurseForge-Pfad setzen.");
+  }
+  startViaCmd(executablePath);
+  clearProcessStatusCache(CURSEFORGE_PROCESS_NAMES);
+  return executablePath;
+}
+
+function taskkillNotRunning(output) {
+  const text = String(output || "").toLowerCase();
+  return text.includes("not found")
+    || text.includes("no tasks are running")
+    || text.includes("keine tasks")
+    || text.includes("konnte nicht gefunden werden")
+    || text.includes("wurde nicht gefunden")
+    || text.includes("keine laufende instanz");
+}
+
+async function stopCurseForgeProcesses() {
+  const attempted = [...CURSEFORGE_PROCESS_NAMES];
+  const stopped = [];
+  const skipped = [];
+
+  if (process.platform !== "win32") {
+    throw new Error("CurseForge Prozesssteuerung ist nur unter Windows verfuegbar.");
+  }
+
+  if (DRY_RUN) {
+    logger.info("dry-run curseforge stop skipped", { attempted });
+    clearProcessStatusCache(CURSEFORGE_PROCESS_NAMES);
+    return { attempted, stopped, skipped: attempted, dryRun: true };
+  }
+
+  for (const imageName of attempted) {
+    try {
+      await execFileAsync("taskkill", ["/IM", imageName, "/T", "/F"], { windowsHide: true, timeout: 10000 });
+      stopped.push(imageName);
+    } catch (error) {
+      const details = `${String(error?.stdout || "")} ${String(error?.stderr || "")}`;
+      if (taskkillNotRunning(details)) {
+        skipped.push(imageName);
+        continue;
+      }
+      throw new Error(`taskkill ${imageName} fehlgeschlagen: ${safeTrim(details.trim(), 260)}`);
+    }
+  }
+
+  clearProcessStatusCache(CURSEFORGE_PROCESS_NAMES);
+  return { attempted, stopped, skipped, dryRun: false };
+}
+
+const systemMetricsState = {
+  cpuSample: null,
+  network: {
+    ts: 0,
+    rxTotalBytes: 0,
+    txTotalBytes: 0,
+    rxBytesPerSec: 0,
+    txBytesPerSec: 0,
+    source: process.platform === "win32" ? "netstat" : "unsupported"
+  }
+};
+
+function readCpuSample() {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+  for (const cpu of cpus) {
+    const times = cpu && cpu.times ? cpu.times : {};
+    const cpuTotal = (times.user || 0) + (times.nice || 0) + (times.sys || 0) + (times.idle || 0) + (times.irq || 0);
+    total += cpuTotal;
+    idle += (times.idle || 0);
+  }
+  return { idle, total, cores: cpus.length || 1 };
+}
+
+function readCpuUsagePercent() {
+  const current = readCpuSample();
+  const previous = systemMetricsState.cpuSample;
+  systemMetricsState.cpuSample = current;
+  if (!previous) return 0;
+  const totalDelta = current.total - previous.total;
+  const idleDelta = current.idle - previous.idle;
+  if (totalDelta <= 0) return 0;
+  const usage = (1 - (idleDelta / totalDelta)) * 100;
+  return Math.max(0, Math.min(100, usage));
+}
+
+function parseCounterNumber(text) {
+  const digits = String(text || "").replace(/[^\d]/g, "");
+  return digits ? Number(digits) : 0;
+}
+
+function safeAddonFolderKey(value) {
+  const key = safeTrim(value, 160);
+  if (!key) throw new Error("addon key fehlt");
+  if (key.includes("\0")) throw new Error("addon key ungueltig");
+  if (/[\\/]/.test(key)) throw new Error("addon key darf keine Pfadtrenner enthalten");
+  if (key.includes("..")) throw new Error("addon key ungueltig");
+  return key;
+}
+
+function wowAddonsBaseDir() {
+  const dir = expandEnv(String(config.wow?.folders?.addons || "").trim());
+  if (!dir) throw new Error("WoW AddOns Ordner nicht konfiguriert");
+  if (!dirExists(dir)) throw new Error(`WoW AddOns Ordner nicht gefunden: ${dir}`);
+  return dir;
+}
+
+function parseAddonTitle(folderPath, folderName) {
+  const preferred = path.join(folderPath, `${folderName}.toc`);
+  const candidates = [];
+  if (fileExists(preferred)) candidates.push(preferred);
+  try {
+    const other = fs
+      .readdirSync(folderPath, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".toc"))
+      .map((entry) => path.join(folderPath, entry.name));
+    candidates.push(...other);
+  } catch {
+    // ignore TOC scan failures
+  }
+
+  for (const tocPath of candidates) {
+    try {
+      const lines = fs.readFileSync(tocPath, "utf8").split(/\r?\n/).slice(0, 120);
+      for (const line of lines) {
+        const m = String(line || "").match(/^##\s*Title\s*:\s*(.+)$/i);
+        if (!m) continue;
+        const title = safeTrim(m[1].replace(/\|c[0-9a-fA-F]{8}/g, "").replace(/\|r/g, ""), 120);
+        if (title) return title;
+      }
+    } catch {
+      // ignore malformed toc files
+    }
+  }
+  return "";
+}
+
+function listWowAddons() {
+  const baseDir = wowAddonsBaseDir();
+  let entries = [];
+  try {
+    entries = fs.readdirSync(baseDir, { withFileTypes: true });
+  } catch {
+    entries = [];
+  }
+
+  const items = [];
+  for (const entry of entries) {
+    if (!entry || !entry.isDirectory()) continue;
+    const folderKey = safeTrim(entry.name, 160);
+    if (!folderKey || folderKey.startsWith(".")) continue;
+    const disabled = /\.disabled$/i.test(folderKey);
+    const displayName = disabled ? folderKey.replace(/\.disabled$/i, "") : folderKey;
+    const folderPath = path.join(baseDir, folderKey);
+    const title = parseAddonTitle(folderPath, displayName) || displayName;
+
+    items.push({
+      key: folderKey,
+      folder: folderKey,
+      name: displayName,
+      title,
+      enabled: !disabled
+    });
+  }
+
+  items.sort((a, b) => a.title.localeCompare(b.title, "de", { sensitivity: "base" }));
+  return { baseDir, items };
+}
+
+function toggleWowAddonState(key, shouldEnable) {
+  const baseDir = wowAddonsBaseDir();
+  const fromKey = safeAddonFolderKey(key);
+  const fromPath = path.join(baseDir, fromKey);
+  if (!dirExists(fromPath)) throw new Error(`Addon nicht gefunden: ${fromKey}`);
+
+  const isDisabled = /\.disabled$/i.test(fromKey);
+  let targetKey = fromKey;
+  if (shouldEnable && isDisabled) targetKey = fromKey.replace(/\.disabled$/i, "");
+  if (!shouldEnable && !isDisabled) targetKey = `${fromKey}.disabled`;
+  if (targetKey === fromKey) return { fromKey, toKey: targetKey, changed: false };
+
+  const toPath = path.join(baseDir, targetKey);
+  if (dirExists(toPath)) {
+    throw new Error(`Ziel existiert bereits: ${targetKey}`);
+  }
+  fs.renameSync(fromPath, toPath);
+  return { fromKey, toKey: targetKey, changed: true };
+}
+
+async function readWindowsNetworkTotals() {
+  const { stdout } = await execFileAsync("netstat", ["-e"], { windowsHide: true, timeout: 5000 });
+  const line = String(stdout || "")
+    .split(/\r?\n/)
+    .find((x) => /^\s*bytes\b/i.test(String(x || "").trim()));
+  if (!line) return null;
+  const parts = String(line).trim().split(/\s+/);
+  if (parts.length < 3) return null;
+  const rx = parseCounterNumber(parts[1]);
+  const tx = parseCounterNumber(parts[2]);
+  if (!Number.isFinite(rx) || !Number.isFinite(tx)) return null;
+  return { rxTotalBytes: rx, txTotalBytes: tx };
+}
+
+async function readNetworkMetrics() {
+  if (process.platform !== "win32") {
+    return {
+      rxTotalBytes: 0,
+      txTotalBytes: 0,
+      rxBytesPerSec: 0,
+      txBytesPerSec: 0,
+      source: "unsupported"
+    };
+  }
+
+  const now = Date.now();
+  const cached = systemMetricsState.network;
+  if (cached.ts && (now - cached.ts) < NET_METRICS_CACHE_MS) {
+    return {
+      rxTotalBytes: cached.rxTotalBytes,
+      txTotalBytes: cached.txTotalBytes,
+      rxBytesPerSec: cached.rxBytesPerSec,
+      txBytesPerSec: cached.txBytesPerSec,
+      source: cached.source
+    };
+  }
+
+  let totals = null;
+  try {
+    totals = await readWindowsNetworkTotals();
+  } catch {
+    totals = null;
+  }
+  if (!totals) {
+    return {
+      rxTotalBytes: cached.rxTotalBytes,
+      txTotalBytes: cached.txTotalBytes,
+      rxBytesPerSec: 0,
+      txBytesPerSec: 0,
+      source: "netstat-unavailable"
+    };
+  }
+
+  let rxBytesPerSec = 0;
+  let txBytesPerSec = 0;
+  if (cached.ts && totals.rxTotalBytes >= cached.rxTotalBytes && totals.txTotalBytes >= cached.txTotalBytes) {
+    const dtSec = Math.max(0.2, (now - cached.ts) / 1000);
+    rxBytesPerSec = Math.max(0, (totals.rxTotalBytes - cached.rxTotalBytes) / dtSec);
+    txBytesPerSec = Math.max(0, (totals.txTotalBytes - cached.txTotalBytes) / dtSec);
+  }
+
+  systemMetricsState.network = {
+    ts: now,
+    rxTotalBytes: totals.rxTotalBytes,
+    txTotalBytes: totals.txTotalBytes,
+    rxBytesPerSec,
+    txBytesPerSec,
+    source: "netstat"
+  };
+
+  return {
+    rxTotalBytes: totals.rxTotalBytes,
+    txTotalBytes: totals.txTotalBytes,
+    rxBytesPerSec,
+    txBytesPerSec,
+    source: "netstat"
+  };
+}
+
+async function collectSystemMetrics() {
+  const cpuUsagePercent = readCpuUsagePercent();
+  const cpu = os.cpus();
+  const totalBytes = os.totalmem();
+  const freeBytes = os.freemem();
+  const usedBytes = Math.max(0, totalBytes - freeBytes);
+  const usagePercent = totalBytes > 0 ? (usedBytes / totalBytes) * 100 : 0;
+  const network = await readNetworkMetrics();
+  const mem = process.memoryUsage();
+
+  return {
+    system: {
+      hostname: os.hostname(),
+      platform: process.platform,
+      release: os.release(),
+      arch: process.arch,
+      uptimeSec: Math.floor(os.uptime())
+    },
+    cpu: {
+      usagePercent: Math.max(0, Math.min(100, cpuUsagePercent)),
+      cores: cpu.length || 1
+    },
+    memory: {
+      totalBytes,
+      usedBytes,
+      freeBytes,
+      usagePercent: Math.max(0, Math.min(100, usagePercent))
+    },
+    network,
+    process: {
+      pid: process.pid,
+      uptimeSec: Math.floor(process.uptime()),
+      rssBytes: mem.rss || 0,
+      heapUsedBytes: mem.heapUsed || 0,
+      nodeVersion: process.version
+    }
+  };
 }
 
 const iconCache = new Map();
@@ -1443,7 +2609,8 @@ async function buildClientTiles() {
       builtin: Boolean(tile.builtin),
       iconMode: tile.iconMode || "emoji",
       icon: tile.icon || defaultTileEmoji(tile.type),
-      iconData: ""
+      iconData: "",
+      action: tile.type === "action" ? (tile.action || "") : ""
     };
 
     if (tile.iconMode === "image" && tile.iconData) {
@@ -1630,7 +2797,13 @@ app.use("/api", (req, res, next) => {
   const started = Date.now();
   res.on("finish", () => {
     const p = sanitizeUrlForLog(req.originalUrl || req.url || "");
-    if (p.startsWith("/api/health") || p.startsWith("/api/status")) return;
+    if (
+      p.startsWith("/api/health")
+      || p.startsWith("/api/status")
+      || p.startsWith("/api/system/metrics")
+      || p.startsWith("/api/curseforge/status")
+      || p.startsWith("/api/audio/mixer")
+    ) return;
     logger.info("api request", {
       requestId: req.requestId,
       method: req.method,
@@ -1694,6 +2867,147 @@ app.get("/api/status", requireToken, rateLimit, async (req, res) => {
   res.json({ ok: true, wowRunning, processName: config.wow.processName, ts: Date.now() });
 });
 
+app.get("/api/curseforge/status", requireToken, rateLimit, async (req, res) => {
+  try {
+    const status = await getCurseForgeStatus();
+    return res.json({ ok: true, ...status, ts: Date.now() });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/curseforge/start", requireToken, rateLimit, async (req, res) => {
+  try {
+    const executablePath = startCurseForgeProcess();
+    const status = await getCurseForgeStatus({ useCache: false });
+    return res.json({ ok: true, executablePath, ...status, ts: Date.now() });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/curseforge/stop", requireToken, rateLimit, async (req, res) => {
+  try {
+    const stopResult = await stopCurseForgeProcesses();
+    const status = await getCurseForgeStatus({ useCache: false });
+    return res.json({ ok: true, ...stopResult, ...status, ts: Date.now() });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/curseforge/restart", requireToken, rateLimit, async (req, res) => {
+  try {
+    const stopResult = await stopCurseForgeProcesses();
+    await new Promise((resolve) => setTimeout(resolve, 240));
+    const executablePath = startCurseForgeProcess();
+    const status = await getCurseForgeStatus({ useCache: false });
+    return res.json({ ok: true, executablePath, stop: stopResult, ...status, ts: Date.now() });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.get("/api/audio/mixer", requireToken, rateLimit, async (req, res) => {
+  try {
+    const snapshot = await readAudioMixerSnapshot();
+    return res.json({ ok: true, ...snapshot, ts: Date.now() });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/audio/session/volume", requireToken, rateLimit, async (req, res) => {
+  try {
+    const { pid, sessionKey } = sanitizeAudioSessionTarget(req.body || {});
+    const volumePercent = sanitizeVolumePercent(req.body?.volumePercent);
+    const result = await setAudioSessionVolume(pid, volumePercent, sessionKey);
+    const snapshot = await readAudioMixerSnapshot({ useCache: false });
+    return res.json({ ok: true, pid, sessionKey, volumePercent, result, snapshot });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/audio/session/mute", requireToken, rateLimit, async (req, res) => {
+  try {
+    const { pid, sessionKey } = sanitizeAudioSessionTarget(req.body || {});
+    const muted = req.body?.muted === true || String(req.body?.muted || "").toLowerCase() === "true";
+    const result = await setAudioSessionMute(pid, muted, sessionKey);
+    const snapshot = await readAudioMixerSnapshot({ useCache: false });
+    return res.json({ ok: true, pid, sessionKey, muted, result, snapshot });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/audio/session/playpause", requireToken, rateLimit, async (req, res) => {
+  try {
+    const rawPid = Number(req.body?.pid || 0);
+    const pid = Number.isFinite(rawPid) && rawPid > 0 ? Math.trunc(rawPid) : 0;
+    const result = await sendAudioSessionPlayPause(pid);
+    return res.json({ ok: true, pid, result, ts: Date.now() });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/audio/spotify/open", requireToken, rateLimit, (req, res) => {
+  try {
+    openSpotifyApp();
+    return res.json({ ok: true, ts: Date.now() });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.get("/api/system/metrics", requireToken, rateLimit, async (req, res) => {
+  try {
+    const metrics = await collectSystemMetrics();
+    res.json({ ok: true, ...metrics, ts: Date.now() });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.get("/api/wow/addons", requireToken, rateLimit, (req, res) => {
+  try {
+    const data = listWowAddons();
+    return res.json({ ok: true, baseDir: data.baseDir, items: data.items, ts: Date.now() });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/wow/addons/toggle", requireToken, rateLimit, (req, res) => {
+  try {
+    const key = safeAddonFolderKey(req.body?.key);
+    const enabled = req.body?.enabled !== false;
+    const result = toggleWowAddonState(key, enabled);
+    const data = listWowAddons();
+    return res.json({
+      ok: true,
+      changed: result.changed,
+      fromKey: result.fromKey,
+      toKey: result.toKey,
+      baseDir: data.baseDir,
+      items: data.items
+    });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
+app.post("/api/wow/addons/open-folder", requireToken, rateLimit, (req, res) => {
+  try {
+    const baseDir = wowAddonsBaseDir();
+    startViaCmd("explorer.exe", [baseDir]);
+    return res.json({ ok: true, path: baseDir });
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: String(error?.message || error) });
+  }
+});
+
 app.get("/api/actions", requireToken, rateLimit, (req, res) => {
   res.json({
     ok: true,
@@ -1702,6 +3016,10 @@ app.get("/api/actions", requireToken, rateLimit, (req, res) => {
       "powershell",
       "browser",
       "discord",
+      "streamingSoundboard",
+      "curseforge",
+      "curseforgeManager",
+      "performanceOverlay",
       "wowStart",
       "openWorkspace",
       "vscode",

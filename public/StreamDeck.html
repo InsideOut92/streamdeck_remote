@@ -408,6 +408,67 @@
 
     dialog::backdrop { background: rgba(0,0,0,.58); }
 
+    #dlgOverlay {
+      width: min(1320px, calc(100vw - 12px));
+      max-height: min(94vh, 980px);
+      padding: 0;
+      overflow: hidden;
+      background: rgba(8, 14, 23, 0.98);
+      border-radius: 16px;
+    }
+
+    .overlayShell {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: min(90vh, 920px);
+      max-height: min(90vh, 920px);
+    }
+
+    .overlayHead {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: linear-gradient(180deg, rgba(132, 198, 255, 0.16), rgba(25, 41, 61, 0.32));
+    }
+
+    .overlayTitleWrap {
+      display: grid;
+      gap: 2px;
+    }
+
+    .overlayTitleWrap strong {
+      font-size: 15px;
+      letter-spacing: .2px;
+    }
+
+    .overlayTitleWrap span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .overlayActions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .overlayFrameWrap {
+      min-height: 0;
+      background: rgba(4, 10, 18, 0.85);
+    }
+
+    #overlayFrame {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+      background: #050b13;
+    }
+
     .dlgTitle { font-weight: 600; margin-bottom: 4px; }
     .dlgHint { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
 
@@ -542,6 +603,14 @@
       .topMenu { grid-template-columns: 1fr; }
       .search { min-width: 100%; }
       .tile { min-height: 92px; }
+      #dlgOverlay {
+        width: calc(100vw - 4px);
+        max-height: 96vh;
+      }
+      .overlayShell {
+        min-height: 92vh;
+        max-height: 92vh;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -650,6 +719,10 @@
         <option value="powershell">powershell</option>
         <option value="browser">browser</option>
         <option value="discord">discord</option>
+        <option value="streamingSoundboard">streamingSoundboard</option>
+        <option value="curseforge">curseforge</option>
+        <option value="curseforgeManager">curseforgeManager</option>
+        <option value="performanceOverlay">performanceOverlay</option>
         <option value="wowStart">wowStart</option>
         <option value="openWorkspace">openWorkspace</option>
       </select>
@@ -773,6 +846,24 @@
     </div>
   </dialog>
 
+  <dialog id="dlgOverlay">
+    <div class="overlayShell">
+      <div class="overlayHead">
+        <div class="overlayTitleWrap">
+          <strong id="overlayTitle">Unterseite</strong>
+          <span id="overlayHint">Eingebettet im StreamDeck Overlay</span>
+        </div>
+        <div class="overlayActions">
+          <button class="btn" id="overlayBack" type="button">Zurueck zur Hauptseite</button>
+          <button class="btn" id="overlayClose" type="button">Schliessen</button>
+        </div>
+      </div>
+      <div class="overlayFrameWrap">
+        <iframe id="overlayFrame" title="StreamDeck Overlay Unterseite" loading="eager"></iframe>
+      </div>
+    </div>
+  </dialog>
+
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
@@ -781,7 +872,7 @@
         .catch(() => {});
     }
 
-    const CLIENT_BUILD = "2026-02-23.2";
+    const CLIENT_BUILD = "2026-02-23.5";
     const LS = {
       token: "sd_token",
       profile: "sd_profile",
@@ -790,6 +881,41 @@
       recent: "sd_recent",
       hidden: "sd_hidden"
     };
+    const EMBEDDED_ACTION_PANELS = Object.freeze({
+      streamingSoundboard: {
+        path: "/Soundboard.html",
+        title: "Streaming Soundboard",
+        hint: "Per-App Mixer (Volume, Mute, Play/Pause) und Spotify-Bereich.",
+        requiredFeature: "audioMixer"
+      },
+      performanceOverlay: {
+        path: "/Performance.html",
+        title: "Leistungs-Overlay",
+        hint: "Livewerte fuer CPU, RAM, Netzwerk und Systemstatus.",
+        requiredFeature: "systemMetrics"
+      },
+      curseforgeManager: {
+        path: "/CurseForge.html",
+        title: "CurseForge AddOn Manager",
+        hint: "WoW AddOns direkt aktivieren/deaktivieren und CurseForge starten.",
+        requiredFeature: "wowAddonsManager"
+      }
+    });
+
+    function parseInitialRouteState() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return {
+          profile: String(params.get("profile") || "").trim(),
+          page: String(params.get("page") || "").trim(),
+          panel: String(params.get("panel") || "").trim()
+        };
+      } catch {
+        return { profile: "", page: "", panel: "" };
+      }
+    }
+
+    const INITIAL_ROUTE = parseInitialRouteState();
     const ICON_PRESETS = Object.freeze([
       { id: "app-dev", emoji: "💻", label: "Editor / Entwicklung" },
       { id: "app-terminal", emoji: "🖥️", label: "Terminal / Konsole" },
@@ -839,8 +965,8 @@
 
     const state = {
       token: localStorage.getItem(LS.token) || "",
-      profile: localStorage.getItem(LS.profile) || "",
-      page: localStorage.getItem(LS.page) || "",
+      profile: INITIAL_ROUTE.profile || localStorage.getItem(LS.profile) || "",
+      page: INITIAL_ROUTE.page || localStorage.getItem(LS.page) || "",
       favorites: new Set(loadStoredArray(LS.fav, 200)),
       recent: loadStoredArray(LS.recent, 50),
       hidden: new Set(loadStoredArray(LS.hidden, 200)),
@@ -858,7 +984,9 @@
       serverVersion: "",
       serverBuild: "",
       serverFeatures: {},
-      legacyServerHintShown: false
+      legacyServerHintShown: false,
+      pendingPanel: INITIAL_ROUTE.panel,
+      overlayContext: null
     };
 
     const el = {
@@ -946,7 +1074,14 @@
       cfgImport: document.getElementById("cfgImport"),
       cfgImportFile: document.getElementById("cfgImportFile"),
       cfgMeta: document.getElementById("cfgMeta"),
-      settingsClose: document.getElementById("settingsClose")
+      settingsClose: document.getElementById("settingsClose"),
+
+      dlgOverlay: document.getElementById("dlgOverlay"),
+      overlayTitle: document.getElementById("overlayTitle"),
+      overlayHint: document.getElementById("overlayHint"),
+      overlayFrame: document.getElementById("overlayFrame"),
+      overlayBack: document.getElementById("overlayBack"),
+      overlayClose: document.getElementById("overlayClose")
     };
 
     function saveSet(key, setValue) {
@@ -976,6 +1111,64 @@
     function setWowState(text, statusClass) {
       el.wowState.textContent = text;
       el.dotWow.className = `dot ${statusClass || ""}`.trim();
+    }
+
+    function hasServerFeature(featureKey) {
+      if (!featureKey) return true;
+      if (!state.serverFeatures || typeof state.serverFeatures !== "object") return true;
+      if (!Object.prototype.hasOwnProperty.call(state.serverFeatures, featureKey)) return true;
+      return state.serverFeatures[featureKey] === true;
+    }
+
+    function overlayUrlFor(pathname) {
+      const url = new URL(pathname, window.location.origin);
+      url.searchParams.set("embed", "1");
+      return `${url.pathname}${url.search}`;
+    }
+
+    function pageIdForMain(profileId) {
+      const pages = pagesForProfile(profileId);
+      return pages.some((p) => p.id === "main") ? "main" : (pages[0]?.id || "main");
+    }
+
+    function closeEmbeddedOverlay(options = {}) {
+      const goMain = options.goMain === true;
+      const context = state.overlayContext;
+      if (el.dlgOverlay.open) el.dlgOverlay.close();
+
+      if (goMain) {
+        const profile = context?.profile && profileById(context.profile) ? context.profile : state.profile;
+        state.profile = profile;
+        state.page = pageIdForMain(profile);
+        localStorage.setItem(LS.profile, state.profile);
+        localStorage.setItem(LS.page, state.page);
+        renderTiles();
+      }
+    }
+
+    function openEmbeddedPanel(action, options = {}) {
+      const descriptor = EMBEDDED_ACTION_PANELS[action];
+      if (!descriptor) return false;
+      if (!hasServerFeature(descriptor.requiredFeature)) {
+        showLegacyServerHint(descriptor.requiredFeature);
+        return false;
+      }
+
+      if (state.token) localStorage.setItem(LS.token, state.token);
+
+      const fallbackProfile = options.profile || state.profile || "gaming";
+      state.overlayContext = {
+        action,
+        profile: profileById(fallbackProfile) ? fallbackProfile : (state.profile || "gaming"),
+        openedAt: Date.now()
+      };
+
+      el.overlayTitle.textContent = descriptor.title || "Unterseite";
+      el.overlayHint.textContent = descriptor.hint || "Eingebettet im StreamDeck Overlay";
+      el.overlayFrame.src = overlayUrlFor(descriptor.path);
+
+      if (!el.dlgOverlay.open) el.dlgOverlay.showModal();
+      return true;
     }
 
     async function api(path, opts = {}) {
@@ -1571,6 +1764,16 @@
       if (target) target.disabled = true;
 
       try {
+        if (tile.type === "action" && tile.action) {
+          const opened = openEmbeddedPanel(tile.action, { profile: tile.profile || state.profile });
+          if (opened) {
+            pushRecent(id);
+            setApiState("ok", "ok");
+            showToast(`Overlay geoeffnet: ${tile.label}`);
+            return;
+          }
+        }
+
         await api("/api/run", { method: "POST", body: { tileId: id } });
         pushRecent(id);
         setApiState("ok", "ok");
@@ -2186,7 +2389,7 @@
         return;
       }
 
-      const anyDialogOpen = el.dlgAdd.open || el.dlgSettings.open || el.dlgTile.open;
+      const anyDialogOpen = el.dlgAdd.open || el.dlgSettings.open || el.dlgTile.open || el.dlgOverlay.open;
       if (!editable && !anyDialogOpen && event.altKey && !meta && !event.shiftKey && /^[1-9]$/.test(key)) {
         event.preventDefault();
         const idx = Number(key) - 1;
@@ -2203,6 +2406,10 @@
         }
         if (el.dlgAdd.open) {
           el.dlgAdd.close();
+          return;
+        }
+        if (el.dlgOverlay.open) {
+          closeEmbeddedOverlay({ goMain: false });
           return;
         }
       }
@@ -2426,6 +2633,29 @@
       showToast("Shortcuts: Ctrl+K Suche | Ctrl+Shift+A Neues Tile | Ctrl+, Einstellungen | Alt+1..9 Tile starten");
     });
     el.settingsClose.addEventListener("click", () => el.dlgSettings.close());
+    el.overlayClose.addEventListener("click", () => closeEmbeddedOverlay({ goMain: false }));
+    el.overlayBack.addEventListener("click", () => closeEmbeddedOverlay({ goMain: true }));
+    el.dlgOverlay.addEventListener("close", () => {
+      state.overlayContext = null;
+      if (el.overlayFrame.src && !el.overlayFrame.src.endsWith("about:blank")) {
+        el.overlayFrame.src = "about:blank";
+      }
+    });
+    el.overlayFrame.addEventListener("load", () => {
+      try {
+        if (!state.token || !el.overlayFrame.contentWindow) return;
+        el.overlayFrame.contentWindow.localStorage.setItem(LS.token, state.token);
+      } catch {
+        // ignore frame access issues
+      }
+    });
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      const msg = event.data && typeof event.data === "object" ? event.data : null;
+      if (!msg || msg.source !== "streamdeck-overlay") return;
+      if (msg.type === "close") closeEmbeddedOverlay({ goMain: false });
+      if (msg.type === "back-main") closeEmbeddedOverlay({ goMain: true });
+    });
 
     el.saveToken.addEventListener("click", async () => {
       state.token = String(el.tokenInput.value || "").trim();
@@ -2584,6 +2814,19 @@
       } catch (error) {
         showToast(`Init Fehler: ${error.message || String(error)}`);
         setApiState("offline", "err");
+      }
+
+      if (state.pendingPanel) {
+        const panel = state.pendingPanel;
+        state.pendingPanel = "";
+        openEmbeddedPanel(panel, { profile: state.profile });
+        try {
+          const clean = new URL(window.location.href);
+          clean.searchParams.delete("panel");
+          history.replaceState({}, "", `${clean.pathname}${clean.search}`);
+        } catch {
+          // ignore history mutation issues
+        }
       }
 
       if (state.serverBuild) {
