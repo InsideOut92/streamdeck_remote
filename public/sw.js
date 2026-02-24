@@ -1,10 +1,11 @@
 // public/sw.js
-const CACHE = "streamdeck-v8";
+const CACHE = "streamdeck-v9";
 const ASSETS = [
   "/StreamDeck.html",
   "/Performance.html",
   "/CurseForge.html",
   "/Soundboard.html",
+  "/WoWNavigator.html",
   "/manifest.webmanifest",
   "/sw.js",
   "/icon.svg"

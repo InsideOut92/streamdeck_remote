@@ -121,6 +121,7 @@
       font-weight: 600;
       cursor: pointer;
       min-height: 42px;
+      touch-action: manipulation;
     }
     .btn:focus-visible,
     .tab:focus-visible,
@@ -492,6 +493,83 @@
       padding: 10px;
       outline: 0;
       font-size: 13px;
+      touch-action: manipulation;
+    }
+
+    .inlineField {
+      display: grid;
+      gap: 6px;
+      min-width: 180px;
+      flex: 1;
+    }
+
+    .fieldStatus {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(205, 227, 246, 0.32);
+      font-size: 11px;
+      line-height: 1;
+      color: rgba(222, 239, 255, 0.92);
+      background: rgba(0, 0, 0, 0.24);
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .fieldStatus::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(156, 193, 224, 0.92);
+      box-shadow: 0 0 0 2px rgba(156, 193, 224, 0.22);
+      flex: 0 0 auto;
+    }
+
+    .fieldStatus.ok {
+      border-color: rgba(34, 197, 94, 0.55);
+      color: rgba(203, 255, 223, 0.96);
+      background: rgba(34, 197, 94, 0.12);
+    }
+    .fieldStatus.ok::before {
+      background: rgba(34, 197, 94, 0.96);
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.22);
+    }
+
+    .fieldStatus.warn {
+      border-color: rgba(245, 158, 11, 0.56);
+      color: rgba(255, 234, 193, 0.98);
+      background: rgba(245, 158, 11, 0.12);
+    }
+    .fieldStatus.warn::before {
+      background: rgba(245, 158, 11, 0.96);
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22);
+    }
+
+    .fieldStatus.err {
+      border-color: rgba(239, 68, 68, 0.56);
+      color: rgba(255, 214, 214, 0.98);
+      background: rgba(239, 68, 68, 0.12);
+    }
+    .fieldStatus.err::before {
+      background: rgba(239, 68, 68, 0.96);
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.22);
+    }
+
+    .fieldStatus.info {
+      border-color: rgba(93, 216, 255, 0.52);
+      color: rgba(220, 247, 255, 0.95);
+      background: rgba(93, 216, 255, 0.11);
+    }
+    .fieldStatus.info::before {
+      background: rgba(93, 216, 255, 0.95);
+      box-shadow: 0 0 0 2px rgba(93, 216, 255, 0.2);
+    }
+
+    .settingsStickyBar {
+      display: none;
     }
 
     .rowActions {
@@ -611,6 +689,46 @@
         min-height: 92vh;
         max-height: 92vh;
       }
+
+      #dlgSettings {
+        width: calc(100vw - 6px);
+        max-height: 96vh;
+        padding-bottom: 78px;
+      }
+
+      #dlgSettings .btn,
+      #dlgSettings .row input,
+      #dlgSettings .row select {
+        min-height: 48px;
+        font-size: 14px;
+      }
+
+      #dlgSettings .setButtons {
+        gap: 10px;
+      }
+
+      #dlgSettings .rowActions {
+        display: none;
+      }
+
+      .settingsStickyBar {
+        position: sticky;
+        bottom: -12px;
+        margin: 10px -12px -12px;
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(4, 10, 18, 0.15), rgba(7, 14, 24, 0.94));
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        z-index: 20;
+      }
+
+      .settingsStickyBar .btn {
+        min-height: 50px;
+        font-size: 12px;
+        padding: 8px 6px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -720,6 +838,7 @@
         <option value="browser">browser</option>
         <option value="discord">discord</option>
         <option value="streamingSoundboard">streamingSoundboard</option>
+        <option value="wowNavigator">wowNavigator</option>
         <option value="curseforge">curseforge</option>
         <option value="curseforgeManager">curseforgeManager</option>
         <option value="performanceOverlay">performanceOverlay</option>
@@ -770,13 +889,36 @@
 
   <dialog id="dlgSettings">
     <div class="dlgTitle">Einstellungen</div>
-    <div class="dlgHint">Token lokal speichern, Launcher automatisch erkennen oder direkt per Dateidialog setzen.</div>
+    <div class="dlgHint">Token und OpenAI-Key werden nur hier verwaltet. Unterseiten nutzen diese Werte automatisch.</div>
 
     <div class="row">
-      <input id="tokenInput" placeholder="Token" />
+      <div class="inlineField">
+        <input id="tokenInput" type="password" placeholder="Token" autocomplete="off" />
+        <span class="fieldStatus info" id="tokenStatus">Token nicht geprueft</span>
+      </div>
       <button class="btn primary" id="saveToken" type="button">Token speichern</button>
       <button class="btn" id="testToken" type="button">Token testen</button>
       <button class="btn" id="refreshAll" type="button">Neu laden</button>
+    </div>
+
+    <div class="setGroup">
+      <div class="dlgTitle" style="font-size: 14px;">KI Assistant (WoW Navigator)</div>
+      <div class="dlgHint">API-Key wird nach dem Speichern nicht angezeigt. Ein neuer Key wird vor dem Speichern verifiziert.</div>
+      <div class="row">
+        <div class="inlineField">
+          <input id="aiModel" placeholder="Modell (z.B. gpt-4o-mini)" />
+          <span class="fieldStatus info" id="aiModelStatus">Modell nicht geprueft</span>
+        </div>
+        <div class="inlineField">
+          <input id="aiApiKey" type="password" placeholder="OpenAI API-Key (optional, sk-...)" autocomplete="off" />
+          <span class="fieldStatus info" id="aiApiKeyStatus">API-Key optional</span>
+        </div>
+      </div>
+      <div class="setButtons">
+        <button class="btn primary" id="aiSave" type="button">KI speichern</button>
+        <button class="btn warn" id="aiClear" type="button">API-Key entfernen</button>
+      </div>
+      <div class="logMeta" id="aiMeta">Kein KI-Status geladen.</div>
     </div>
 
     <div class="setGroup">
@@ -820,10 +962,16 @@
           <option value="INFO" selected>Level: INFO</option>
           <option value="DEBUG">Level: DEBUG</option>
         </select>
-        <input id="logMaxFiles" type="number" min="3" max="90" step="1" placeholder="max Dateien (3-90)" />
+        <div class="inlineField">
+          <input id="logMaxFiles" type="number" min="3" max="90" step="1" placeholder="max Dateien (3-90)" />
+          <span class="fieldStatus info" id="logMaxFilesStatus">Log-Rotation nicht geprueft</span>
+        </div>
       </div>
       <div class="row">
-        <input id="logDir" placeholder="Log-Ordner (optional, leer = Standard)" />
+        <div class="inlineField">
+          <input id="logDir" placeholder="Log-Ordner (optional, leer = Standard)" />
+          <span class="fieldStatus info" id="logDirStatus">Log-Ordner Standard</span>
+        </div>
         <button class="btn primary" id="logSave" type="button">Logging speichern</button>
       </div>
       <div class="logMeta" id="logMeta">Logs nicht geladen.</div>
@@ -843,6 +991,12 @@
 
     <div class="rowActions">
       <button class="btn" id="settingsClose" type="button">Schliessen</button>
+    </div>
+    <div class="settingsStickyBar" id="settingsStickyBar">
+      <button class="btn primary" id="stickySaveToken" type="button">Token</button>
+      <button class="btn primary" id="stickySaveAi" type="button">KI</button>
+      <button class="btn primary" id="stickySaveLogging" type="button">Logging</button>
+      <button class="btn" id="stickyCloseSettings" type="button">Schliessen</button>
     </div>
   </dialog>
 
@@ -872,7 +1026,7 @@
         .catch(() => {});
     }
 
-    const CLIENT_BUILD = "2026-02-23.5";
+    const CLIENT_BUILD = "2026-02-24.1";
     const LS = {
       token: "sd_token",
       profile: "sd_profile",
@@ -887,6 +1041,12 @@
         title: "Streaming Soundboard",
         hint: "Per-App Mixer (Volume, Mute, Play/Pause) und Spotify-Bereich.",
         requiredFeature: "audioMixer"
+      },
+      wowNavigator: {
+        path: "/WoWNavigator.html",
+        title: "WoW Navigator",
+        hint: "Quest-Hilfe, Wegpunkte und KI-Assistenz ohne Cheat-Mechanik.",
+        requiredFeature: "wowNavigator"
       },
       performanceOverlay: {
         path: "/Performance.html",
@@ -1053,9 +1213,17 @@
 
       dlgSettings: document.getElementById("dlgSettings"),
       tokenInput: document.getElementById("tokenInput"),
+      tokenStatus: document.getElementById("tokenStatus"),
       saveToken: document.getElementById("saveToken"),
       testToken: document.getElementById("testToken"),
       refreshAll: document.getElementById("refreshAll"),
+      aiModel: document.getElementById("aiModel"),
+      aiModelStatus: document.getElementById("aiModelStatus"),
+      aiApiKey: document.getElementById("aiApiKey"),
+      aiApiKeyStatus: document.getElementById("aiApiKeyStatus"),
+      aiSave: document.getElementById("aiSave"),
+      aiClear: document.getElementById("aiClear"),
+      aiMeta: document.getElementById("aiMeta"),
       autoDetectAll: document.getElementById("autoDetectAll"),
       launchersBox: document.getElementById("launchersBox"),
       wowBox: document.getElementById("wowBox"),
@@ -1066,7 +1234,9 @@
       logEnabled: document.getElementById("logEnabled"),
       logLevel: document.getElementById("logLevel"),
       logMaxFiles: document.getElementById("logMaxFiles"),
+      logMaxFilesStatus: document.getElementById("logMaxFilesStatus"),
       logDir: document.getElementById("logDir"),
+      logDirStatus: document.getElementById("logDirStatus"),
       logSave: document.getElementById("logSave"),
       logMeta: document.getElementById("logMeta"),
       logView: document.getElementById("logView"),
@@ -1075,6 +1245,11 @@
       cfgImportFile: document.getElementById("cfgImportFile"),
       cfgMeta: document.getElementById("cfgMeta"),
       settingsClose: document.getElementById("settingsClose"),
+      settingsStickyBar: document.getElementById("settingsStickyBar"),
+      stickySaveToken: document.getElementById("stickySaveToken"),
+      stickySaveAi: document.getElementById("stickySaveAi"),
+      stickySaveLogging: document.getElementById("stickySaveLogging"),
+      stickyCloseSettings: document.getElementById("stickyCloseSettings"),
 
       dlgOverlay: document.getElementById("dlgOverlay"),
       overlayTitle: document.getElementById("overlayTitle"),
@@ -1111,6 +1286,172 @@
     function setWowState(text, statusClass) {
       el.wowState.textContent = text;
       el.dotWow.className = `dot ${statusClass || ""}`.trim();
+    }
+
+    function normalizeFieldStatus(result) {
+      const item = result && typeof result === "object" ? result : {};
+      const kindRaw = String(item.kind || item.level || "info").trim().toLowerCase();
+      const kind = ["ok", "warn", "err", "info"].includes(kindRaw) ? kindRaw : "info";
+      const text = String(item.text || "").trim() || "Status unbekannt";
+      return { kind, text };
+    }
+
+    function setFieldStatus(chip, result) {
+      if (!chip) return;
+      const status = normalizeFieldStatus(result);
+      chip.className = `fieldStatus ${status.kind}`;
+      chip.textContent = status.text;
+      chip.title = status.text;
+    }
+
+    function validateTokenField(rawValue) {
+      const value = String(rawValue || "").trim();
+      if (!value) return { kind: "err", text: "Token fehlt" };
+      if (/[\s]/.test(value)) return { kind: "err", text: "Token darf keine Leerzeichen enthalten" };
+      if (value.length < 12) return { kind: "err", text: "Token zu kurz (min. 12 Zeichen)" };
+      return { kind: "ok", text: "Token-Format gueltig" };
+    }
+
+    function validateAiModelField(rawValue) {
+      const value = String(rawValue || "").trim();
+      if (!value) return { kind: "err", text: "Modell fehlt" };
+      if (/[\r\n]/.test(value)) return { kind: "err", text: "Modell darf keinen Zeilenumbruch enthalten" };
+      if (value.length > 80) return { kind: "err", text: "Modell zu lang (max. 80 Zeichen)" };
+      return { kind: "ok", text: "Modell-Format gueltig" };
+    }
+
+    function validateAiApiKeyField(rawValue) {
+      const value = String(rawValue || "").trim();
+      if (!value) return { kind: "info", text: "Optional: leer = lokaler Fallback" };
+      if (/[\r\n]/.test(value)) return { kind: "err", text: "API-Key darf keine Zeilenumbrueche enthalten" };
+      if (/\s/.test(value)) return { kind: "err", text: "API-Key darf keine Leerzeichen enthalten" };
+      if (value.length < 20) return { kind: "err", text: "API-Key wirkt zu kurz (min. 20 Zeichen)" };
+      if (!/^sk-/i.test(value)) return { kind: "warn", text: "Ungewoehnliches Prefix, bitte pruefen" };
+      return { kind: "ok", text: "API-Key-Format plausibel" };
+    }
+
+    function validatePathField(rawValue, options = {}) {
+      const required = options.required === true;
+      const emptyText = options.emptyText || (required ? "Pfad fehlt" : "Pfad optional");
+      const value = String(rawValue || "").trim();
+      if (!value) return { kind: required ? "warn" : "info", text: emptyText };
+      if (/[\r\n]/.test(value)) return { kind: "err", text: "Pfad enthaelt ungueltige Zeilenumbrueche" };
+      if (value.length > 2048) return { kind: "err", text: "Pfad zu lang" };
+      if (looksLikePathInput(value) || /%[^%]+%/.test(value)) return { kind: "ok", text: "Pfad-Format plausibel" };
+      return { kind: "warn", text: "Pfad-Format ungewoehnlich, bitte pruefen" };
+    }
+
+    function validateWowProcessField(rawValue) {
+      const value = String(rawValue || "").trim();
+      if (!value) return { kind: "err", text: "Prozessname fehlt" };
+      if (/[\\/]/.test(value)) return { kind: "err", text: "Nur Dateiname erlaubt (kein Pfad)" };
+      if (!/\.exe$/i.test(value)) return { kind: "warn", text: "Prozessname sollte auf .exe enden" };
+      return { kind: "ok", text: "Prozessname plausibel" };
+    }
+
+    function validateLogMaxFilesField(rawValue) {
+      const value = Number(String(rawValue || "").trim());
+      if (!Number.isFinite(value)) return { kind: "err", text: "Bitte eine Zahl eingeben" };
+      if (!Number.isInteger(value)) return { kind: "err", text: "Nur ganze Zahlen erlaubt" };
+      if (value < 3 || value > 90) return { kind: "err", text: "Gueltiger Bereich: 3 bis 90" };
+      return { kind: "ok", text: `Rotation: ${value} Dateien` };
+    }
+
+    function validateLogDirField(rawValue) {
+      const value = String(rawValue || "").trim();
+      if (!value) return { kind: "info", text: "Standard-Logordner wird verwendet" };
+      if (/[\r\n]/.test(value)) return { kind: "err", text: "Log-Ordner enthaelt Zeilenumbrueche" };
+      if (value.length > 2048) return { kind: "err", text: "Log-Ordner zu lang" };
+      if (looksLikePathInput(value) || /%[^%]+%/.test(value)) return { kind: "ok", text: "Eigener Log-Ordner gesetzt" };
+      return { kind: "warn", text: "Log-Ordner ungewoehnlich, bitte pruefen" };
+    }
+
+    function createInputStatusController(input, chip, validator, options = {}) {
+      const getCurrent = () => String(input?.value || "").trim();
+      const showChanged = options.showChanged !== false;
+      const changedText = options.changedText || "Geaendert, noch nicht gespeichert";
+
+      const run = (mode = "live") => {
+        if (!input || !chip || typeof validator !== "function") return;
+        const value = getCurrent();
+        const base = String(input.dataset.statusBaseValue || "");
+        const result = normalizeFieldStatus(validator(value));
+        const isChanged = value !== base;
+        if (result.kind === "err") {
+          setFieldStatus(chip, result);
+          return;
+        }
+        if (mode !== "saved" && showChanged && isChanged) {
+          setFieldStatus(chip, { kind: "warn", text: changedText });
+          return;
+        }
+        setFieldStatus(chip, result);
+      };
+
+      const setBase = (value) => {
+        input.dataset.statusBaseValue = String(value ?? "").trim();
+      };
+
+      const markSaved = () => {
+        setBase(getCurrent());
+        run("saved");
+      };
+
+      setBase(options.baseValue !== undefined ? options.baseValue : getCurrent());
+      input.addEventListener("input", () => run("live"));
+      input.addEventListener("change", () => run("live"));
+      run("saved");
+      return {
+        run,
+        markSaved,
+        setBase: (value) => {
+          setBase(value);
+          run("saved");
+        }
+      };
+    }
+
+    function createRowStatusController(row, input, validator, options = {}) {
+      const chip = document.createElement("span");
+      chip.className = "fieldStatus info";
+      row.appendChild(chip);
+      return createInputStatusController(input, chip, validator, options);
+    }
+
+    const settingsStatus = {
+      token: null,
+      aiModel: null,
+      aiApiKey: null,
+      logMaxFiles: null,
+      logDir: null
+    };
+
+    function bindStaticSettingsStatusControllers() {
+      if (!settingsStatus.token && el.tokenInput && el.tokenStatus) {
+        settingsStatus.token = createInputStatusController(el.tokenInput, el.tokenStatus, validateTokenField);
+      }
+      if (!settingsStatus.aiModel && el.aiModel && el.aiModelStatus) {
+        settingsStatus.aiModel = createInputStatusController(el.aiModel, el.aiModelStatus, validateAiModelField);
+      }
+      if (!settingsStatus.aiApiKey && el.aiApiKey && el.aiApiKeyStatus) {
+        settingsStatus.aiApiKey = createInputStatusController(el.aiApiKey, el.aiApiKeyStatus, validateAiApiKeyField, {
+          showChanged: false
+        });
+      }
+      if (!settingsStatus.logMaxFiles && el.logMaxFiles && el.logMaxFilesStatus) {
+        settingsStatus.logMaxFiles = createInputStatusController(el.logMaxFiles, el.logMaxFilesStatus, validateLogMaxFilesField);
+      }
+      if (!settingsStatus.logDir && el.logDir && el.logDirStatus) {
+        settingsStatus.logDir = createInputStatusController(el.logDir, el.logDirStatus, validateLogDirField);
+      }
+    }
+
+    function refreshStaticSettingsStatusControllers() {
+      for (const key of Object.keys(settingsStatus)) {
+        const ctl = settingsStatus[key];
+        if (!ctl || typeof ctl.run !== "function") continue;
+        ctl.run("live");
+      }
     }
 
     function hasServerFeature(featureKey) {
@@ -1544,10 +1885,17 @@
       el.logMeta.textContent = msg;
       el.logView.textContent = "";
       el.cfgMeta.textContent = msg;
+      el.aiMeta.textContent = msg;
+      el.aiModel.value = "gpt-4o-mini";
+      el.aiApiKey.value = "";
       el.logEnabled.value = "true";
       el.logLevel.value = "INFO";
       el.logMaxFiles.value = "14";
       el.logDir.value = "";
+      el.aiModel.disabled = true;
+      el.aiApiKey.disabled = true;
+      el.aiSave.disabled = true;
+      el.aiClear.disabled = true;
       el.logsRefresh.disabled = true;
       el.logsCopy.disabled = true;
       el.logSave.disabled = true;
@@ -1559,6 +1907,59 @@
       el.cfgExport.disabled = true;
       el.cfgImport.disabled = true;
       el.cfgImportFile.disabled = true;
+      el.stickySaveToken.disabled = false;
+      el.stickySaveAi.disabled = true;
+      el.stickySaveLogging.disabled = true;
+      setFieldStatus(el.tokenStatus, { kind: "err", text: "Token fehlt" });
+      setFieldStatus(el.aiModelStatus, { kind: "warn", text: "Token noetig fuer KI-Settings" });
+      setFieldStatus(el.aiApiKeyStatus, { kind: "warn", text: "Token noetig fuer KI-Settings" });
+      setFieldStatus(el.logMaxFilesStatus, { kind: "warn", text: "Token noetig fuer Logging-Settings" });
+      setFieldStatus(el.logDirStatus, { kind: "warn", text: "Token noetig fuer Logging-Settings" });
+    }
+
+    function setAiUi(ai) {
+      const status = ai && typeof ai === "object" ? ai : {};
+      const hasApiKey = status.hasApiKey === true;
+      const source = String(status.source || "none");
+      const keyManagedByEnv = status.keyManagedByEnv === true;
+      const model = String(status.model || "gpt-4o-mini").trim() || "gpt-4o-mini";
+
+      el.aiModel.value = model;
+      el.aiApiKey.value = "";
+      el.aiModel.disabled = false;
+      el.aiApiKey.disabled = keyManagedByEnv;
+      el.aiSave.disabled = false;
+      el.aiClear.disabled = keyManagedByEnv || !hasApiKey;
+      el.stickySaveAi.disabled = false;
+      if (settingsStatus.aiModel) settingsStatus.aiModel.setBase(model);
+      if (settingsStatus.aiApiKey) settingsStatus.aiApiKey.setBase("");
+
+      const provider = String(status.provider || "openai");
+      const keyText = hasApiKey
+        ? (keyManagedByEnv ? "API-Key aktiv (Quelle: Umgebungsvariable)." : "API-Key gespeichert (aus Sicherheitsgruenden ausgeblendet).")
+        : "Kein API-Key gespeichert (lokaler Fallback aktiv).";
+      const modelHint = keyManagedByEnv
+        ? "API-Key wird extern gesetzt und kann hier nicht geaendert werden."
+        : "Du kannst den Key hier aktualisieren oder entfernen.";
+      el.aiMeta.textContent = `Provider: ${provider} | Modell: ${model} | ${keyText} ${modelHint}`;
+      if (source === "env") {
+        el.aiMeta.textContent += " Quelle: env.";
+      } else if (source === "config") {
+        el.aiMeta.textContent += " Quelle: config.";
+      } else {
+        el.aiMeta.textContent += " Quelle: none.";
+      }
+      if (hasApiKey) {
+        setFieldStatus(el.aiApiKeyStatus, {
+          kind: keyManagedByEnv ? "info" : "ok",
+          text: keyManagedByEnv
+            ? "API-Key via env aktiv (in UI gesperrt)"
+            : "API-Key gespeichert (ausgeblendet)"
+        });
+      } else {
+        setFieldStatus(el.aiApiKeyStatus, { kind: "info", text: "Kein API-Key gespeichert (Fallback aktiv)" });
+      }
+      if (settingsStatus.aiModel) settingsStatus.aiModel.run("saved");
     }
 
     function setLoggingUi(logging) {
@@ -1567,6 +1968,8 @@
       el.logLevel.value = String(logging?.effectiveLevel || logging?.level || "INFO").toUpperCase();
       el.logMaxFiles.value = String(logging?.maxFiles || 14);
       el.logDir.value = String(logging?.dir || "");
+      if (settingsStatus.logMaxFiles) settingsStatus.logMaxFiles.setBase(el.logMaxFiles.value);
+      if (settingsStatus.logDir) settingsStatus.logDir.setBase(el.logDir.value);
       el.logsRefresh.disabled = false;
       el.logsCopy.disabled = false;
       el.logSave.disabled = false;
@@ -1578,6 +1981,7 @@
       el.cfgExport.disabled = false;
       el.cfgImport.disabled = false;
       el.cfgImportFile.disabled = false;
+      el.stickySaveLogging.disabled = false;
     }
 
     async function loadRecentLogs() {
@@ -1994,6 +2398,9 @@
 
       try {
         const settings = await api("/api/settings");
+        if (settingsStatus.token) settingsStatus.token.setBase(state.token);
+        setFieldStatus(el.tokenStatus, { kind: "ok", text: "Token aktiv" });
+        setAiUi(settings.ai || {});
 
         el.launchersBox.textContent = "";
         for (const launcher of settings.launchers || []) {
@@ -2009,6 +2416,12 @@
           input.value = launcher.path || "";
           input.placeholder = "Pfad";
           row.appendChild(input);
+          const launcherStatus = createRowStatusController(
+            row,
+            input,
+            (value) => validatePathField(value, { required: true, emptyText: "Kein Launcher-Pfad gesetzt" }),
+            { changedText: "Launcher geaendert, noch nicht gespeichert" }
+          );
 
           const buttons = document.createElement("div");
           buttons.className = "setButtons";
@@ -2023,6 +2436,7 @@
               if (r.path) {
                 input.value = r.path;
                 await api("/api/settings/launcher", { method: "POST", body: { id: launcher.id, path: r.path } });
+                launcherStatus.markSaved();
                 showToast(`${launcher.label} gesetzt`);
               } else if (r.unavailable) {
                 showToast(r.reason || "Datei-Dialog nicht verfuegbar. Pfad manuell eintragen.");
@@ -2053,6 +2467,7 @@
           btnSave.onclick = async () => {
             try {
               await api("/api/settings/launcher", { method: "POST", body: { id: launcher.id, path: input.value } });
+              launcherStatus.markSaved();
               showToast(`${launcher.label} gespeichert`);
             } catch (error) {
               showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
@@ -2081,6 +2496,12 @@
           const input = document.createElement("input");
           input.value = folders[key] || "";
           row.appendChild(input);
+          const wowFolderStatus = createRowStatusController(
+            row,
+            input,
+            (value) => validatePathField(value, { required: true, emptyText: `WoW ${key} Pfad fehlt` }),
+            { changedText: `WoW ${key} geaendert, noch nicht gespeichert` }
+          );
 
           const buttons = document.createElement("div");
           buttons.className = "setButtons";
@@ -2095,6 +2516,7 @@
               if (r.path) {
                 input.value = r.path;
                 await api("/api/settings/wow-folder", { method: "POST", body: { key, path: r.path } });
+                wowFolderStatus.markSaved();
                 showToast(`WoW ${key} gesetzt`);
               } else if (r.unavailable) {
                 showToast(r.reason || "Ordner-Dialog nicht verfuegbar. Pfad manuell eintragen.");
@@ -2111,6 +2533,7 @@
           btnSave.onclick = async () => {
             try {
               await api("/api/settings/wow-folder", { method: "POST", body: { key, path: input.value } });
+              wowFolderStatus.markSaved();
               showToast(`WoW ${key} gespeichert`);
             } catch (error) {
               showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
@@ -2132,6 +2555,12 @@
         const procInput = document.createElement("input");
         procInput.value = settings.wow?.processName || "WowClassic.exe";
         procRow.appendChild(procInput);
+        const wowProcessStatus = createRowStatusController(
+          procRow,
+          procInput,
+          validateWowProcessField,
+          { changedText: "Prozessname geaendert, noch nicht gespeichert" }
+        );
         const procButtons = document.createElement("div");
         procButtons.className = "setButtons";
         const procSave = document.createElement("button");
@@ -2141,6 +2570,7 @@
         procSave.onclick = async () => {
           try {
             await api("/api/settings/wow-process", { method: "POST", body: { processName: procInput.value } });
+            wowProcessStatus.markSaved();
             showToast("WoW Prozess gespeichert");
           } catch (error) {
             showToast(`Speichern fehlgeschlagen: ${error.message || String(error)}`);
@@ -2181,6 +2611,7 @@
         }
 
         setLoggingUi(settings.logging || {});
+        refreshStaticSettingsStatusControllers();
         const hasConfigTransfer = settings.features?.settingsImportExport === true;
         el.cfgExport.disabled = !hasConfigTransfer;
         el.cfgImport.disabled = !hasConfigTransfer;
@@ -2196,6 +2627,14 @@
         }
       } catch (error) {
         el.launchersBox.textContent = "";
+        setFieldStatus(el.tokenStatus, { kind: "err", text: "Token ungueltig oder Server nicht erreichbar" });
+        el.aiMeta.textContent = `Konnte KI-Einstellungen nicht laden: ${error.message || String(error)}`;
+        el.aiModel.disabled = true;
+        el.aiApiKey.disabled = true;
+        el.aiSave.disabled = true;
+        el.aiClear.disabled = true;
+        el.stickySaveAi.disabled = true;
+        el.stickySaveLogging.disabled = true;
         const msg = document.createElement("div");
         msg.className = "setLabel";
         msg.textContent = `Konnte Einstellungen nicht laden: ${error.message || String(error)}`;
@@ -2273,9 +2712,38 @@
 
     async function openSettingsDialog() {
       el.tokenInput.value = state.token;
+      if (settingsStatus.token) settingsStatus.token.setBase(state.token);
       await refreshSettingsContent();
       if (!el.dlgSettings.open) el.dlgSettings.showModal();
     }
+
+    async function saveAiSettings(options = {}) {
+      const clearKey = options.clearKey === true;
+      const modelInput = String(el.aiModel.value || "").trim();
+      const model = modelInput || "gpt-4o-mini";
+      const keyInput = String(el.aiApiKey.value || "").trim();
+      const payload = { model };
+      if (clearKey) {
+        payload.openAiApiKey = "";
+      } else if (keyInput) {
+        payload.openAiApiKey = keyInput;
+        payload.verify = true;
+      }
+      let result = null;
+      try {
+        result = await api("/api/settings/ai", { method: "POST", body: payload });
+      } catch (error) {
+        if (isHttp404Error(error)) {
+          showLegacyServerHint("/api/settings/ai");
+          throw new Error("KI-Settings-Endpunkt fehlt auf dem laufenden Server. Bitte Server neu starten.");
+        }
+        throw error;
+      }
+      setAiUi(result.ai || {});
+      return result;
+    }
+
+    bindStaticSettingsStatusControllers();
 
     el.clearQ.addEventListener("click", () => {
       el.q.value = "";
@@ -2633,6 +3101,10 @@
       showToast("Shortcuts: Ctrl+K Suche | Ctrl+Shift+A Neues Tile | Ctrl+, Einstellungen | Alt+1..9 Tile starten");
     });
     el.settingsClose.addEventListener("click", () => el.dlgSettings.close());
+    el.stickyCloseSettings.addEventListener("click", () => el.dlgSettings.close());
+    el.stickySaveToken.addEventListener("click", () => el.saveToken.click());
+    el.stickySaveAi.addEventListener("click", () => el.aiSave.click());
+    el.stickySaveLogging.addEventListener("click", () => el.logSave.click());
     el.overlayClose.addEventListener("click", () => closeEmbeddedOverlay({ goMain: false }));
     el.overlayBack.addEventListener("click", () => closeEmbeddedOverlay({ goMain: true }));
     el.dlgOverlay.addEventListener("close", () => {
@@ -2655,16 +3127,31 @@
       if (!msg || msg.source !== "streamdeck-overlay") return;
       if (msg.type === "close") closeEmbeddedOverlay({ goMain: false });
       if (msg.type === "back-main") closeEmbeddedOverlay({ goMain: true });
+      if (msg.type === "open-settings") {
+        closeEmbeddedOverlay({ goMain: true });
+        openSettingsDialog().catch((error) => {
+          showToast(`Einstellungen konnten nicht geoeffnet werden: ${error.message || String(error)}`);
+        });
+      }
     });
 
     el.saveToken.addEventListener("click", async () => {
       state.token = String(el.tokenInput.value || "").trim();
+      const tokenStatus = validateTokenField(state.token);
+      setFieldStatus(el.tokenStatus, tokenStatus);
+      if (tokenStatus.kind === "err") {
+        showToast(tokenStatus.text);
+        return;
+      }
       localStorage.setItem(LS.token, state.token);
-      showToast("Token gespeichert");
       try {
         await loadBootstrap();
         await pollStatus();
+        if (settingsStatus.token) settingsStatus.token.markSaved();
+        setFieldStatus(el.tokenStatus, { kind: "ok", text: "Token gespeichert und verifiziert" });
+        showToast("Token gespeichert");
       } catch (error) {
+        setFieldStatus(el.tokenStatus, { kind: "err", text: "Token ungueltig oder Server nicht erreichbar" });
         showToast(`Laden fehlgeschlagen: ${error.message || String(error)}`);
       }
     });
@@ -2672,14 +3159,57 @@
     el.testToken.addEventListener("click", async () => {
       state.token = String(el.tokenInput.value || "").trim();
       if (!state.token) {
+        setFieldStatus(el.tokenStatus, { kind: "err", text: "Token fehlt" });
         showToast("Token fehlt");
         return;
       }
       try {
         await api("/api/health");
+        setFieldStatus(el.tokenStatus, { kind: "ok", text: "Token-Test erfolgreich" });
         showToast("Token ist gueltig");
       } catch (error) {
+        setFieldStatus(el.tokenStatus, { kind: "err", text: "Token-Test fehlgeschlagen" });
         showToast(`Token ungueltig: ${error.message || String(error)}`);
+      }
+    });
+
+    el.aiSave.addEventListener("click", async () => {
+      const modelStatus = validateAiModelField(el.aiModel.value);
+      if (modelStatus.kind === "err") {
+        setFieldStatus(el.aiModelStatus, modelStatus);
+        showToast(modelStatus.text);
+        return;
+      }
+      const keyStatus = validateAiApiKeyField(el.aiApiKey.value);
+      if (keyStatus.kind === "err") {
+        setFieldStatus(el.aiApiKeyStatus, keyStatus);
+        showToast(keyStatus.text);
+        return;
+      }
+      try {
+        const result = await saveAiSettings({ clearKey: false });
+        if (settingsStatus.aiModel) settingsStatus.aiModel.markSaved();
+        if (result?.verification?.ok === true) {
+          const modelCount = Number(result.verification.modelCount) || 0;
+          showToast(`KI gespeichert (OpenAI verifiziert, Modelle: ${modelCount})`);
+        } else {
+          showToast("KI-Einstellungen gespeichert");
+        }
+      } catch (error) {
+        showToast(`KI speichern fehlgeschlagen: ${error.message || String(error)}`);
+      }
+    });
+
+    el.aiClear.addEventListener("click", async () => {
+      const confirmed = window.confirm("Gespeicherten OpenAI API-Key wirklich entfernen?");
+      if (!confirmed) return;
+      try {
+        await saveAiSettings({ clearKey: true });
+        if (settingsStatus.aiApiKey) settingsStatus.aiApiKey.markSaved();
+        setFieldStatus(el.aiApiKeyStatus, { kind: "info", text: "API-Key entfernt (Fallback aktiv)" });
+        showToast("OpenAI API-Key entfernt");
+      } catch (error) {
+        showToast(`API-Key entfernen fehlgeschlagen: ${error.message || String(error)}`);
       }
     });
 
@@ -2745,6 +3275,18 @@
     });
 
     el.logSave.addEventListener("click", async () => {
+      const maxFilesStatus = validateLogMaxFilesField(el.logMaxFiles.value);
+      if (maxFilesStatus.kind === "err") {
+        setFieldStatus(el.logMaxFilesStatus, maxFilesStatus);
+        showToast(maxFilesStatus.text);
+        return;
+      }
+      const dirStatus = validateLogDirField(el.logDir.value);
+      if (dirStatus.kind === "err") {
+        setFieldStatus(el.logDirStatus, dirStatus);
+        showToast(dirStatus.text);
+        return;
+      }
       try {
         await api("/api/settings/logging", {
           method: "POST",
@@ -2756,6 +3298,8 @@
           }
         });
         await refreshSettingsContent();
+        if (settingsStatus.logMaxFiles) settingsStatus.logMaxFiles.markSaved();
+        if (settingsStatus.logDir) settingsStatus.logDir.markSaved();
         showToast("Logging gespeichert");
       } catch (error) {
         showToast(`Logging speichern fehlgeschlagen: ${error.message || String(error)}`);

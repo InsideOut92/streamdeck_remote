@@ -10,6 +10,7 @@ All API routes require:
 - `ok`: boolean
 - `error`: string (on failure)
 - `X-Request-Id` response header for log correlation
+- Rate-limit headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, optional `Retry-After`
 
 ## GET /api/health
 Health + feature flags.
@@ -29,10 +30,17 @@ Example response:
     "settingsImportExport": true,
     "systemMetrics": true,
     "wowAddonsManager": true,
+    "wowNavigator": true,
+    "questAssistant": true,
+    "questAssistantLive": false,
     "curseforgeControl": true,
     "audioMixer": true,
     "programResolve": true,
     "tileDetails": true,
+    "diagnostics": true,
+    "runHistory": true,
+    "tileRecommendations": true,
+    "liveStream": true,
     "dryRun": false,
     "launcherAutodetect": true
   }
@@ -96,6 +104,44 @@ Request:
 ## POST /api/audio/spotify/open
 Open Spotify via protocol handler (`spotify:`).
 
+## GET /api/wow/navigator/status
+Returns WoW navigator status and AddOn capabilities.
+
+Response contains:
+- `wowRunning`, `processName`
+- `addonsAvailable`, `addonsBaseDir`, `addonsCount`
+- `isTomTomInstalled`, `isQuestieInstalled`, `isStreamDeckNavigatorInstalled`
+- `aiLive` (whether live OpenAI integration is active)
+
+## POST /api/wow/assistant
+Quest helper endpoint (cheat-free recommendations + waypoint commands).
+
+Request:
+
+```json
+{
+  "question": "Ich bin level 24 in Redridge, wo finde ich Orcs?",
+  "context": {
+    "characterName": "Arthas",
+    "className": "Paladin",
+    "faction": "Alliance",
+    "level": 24,
+    "zone": "Redridge Mountains",
+    "expansion": "Classic",
+    "objective": "Wanted: Lieutenant Fangore"
+  }
+}
+```
+
+Response contains:
+- `provider` (`openai` or `local-fallback`)
+- `answer`, `safety`
+- `nextSteps[]` with `title`, `details`
+- `waypoints[]` with:
+  - `zone`, `x`, `y`, `note`
+  - `tomtomCommand`
+  - `streamDeckNavigatorCommand` (for `/sdnav`)
+
 ## GET /api/curseforge/status
 Returns CurseForge launcher + process state.
 
@@ -153,7 +199,55 @@ Returns profiles, client-visible tiles, wow status, version/build/features.
 
 ## GET /api/settings
 Returns editable server settings for UI.
-Includes launchers, wow settings, logging settings.
+Includes launchers, wow settings, logging settings and AI status.
+
+AI section (`ai`) contains:
+- `provider` (`openai`)
+- `model`
+- `hasApiKey` (boolean)
+- `source` (`none|config|env`)
+- `keyManagedByEnv` (boolean)
+
+No raw API key is returned by this endpoint.
+
+## GET /api/settings/ai
+Returns only AI assistant settings/status.
+
+Response:
+
+```json
+{
+  "ok": true,
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "hasApiKey": true,
+    "source": "config",
+    "keyManagedByEnv": false
+  },
+  "ts": 1760000000000
+}
+```
+
+## POST /api/settings/ai
+Update AI assistant settings.
+
+Request:
+
+```json
+{
+  "model": "gpt-4o-mini",
+  "openAiApiKey": "sk-...",
+  "verify": true
+}
+```
+
+Notes:
+- `openAiApiKey` is optional. If omitted, only model is updated.
+- Set `openAiApiKey` to empty string to remove stored key.
+- If `verify` is not `false`, a provided non-empty key is verified against OpenAI before save.
+- If key is supplied by environment variable, this route returns `409`.
+- Raw key is never returned in response.
 
 ## POST /api/settings/launcher
 Set launcher path.
@@ -267,6 +361,55 @@ Return latest log lines.
 
 Query params:
 - `lines`: 10..2000
+
+## GET /api/diagnostics
+Runtime diagnostics snapshot for observability.
+
+Query params:
+- `routeLimit`: 1..40 (default 10)
+- `recentRuns`: 1..120 (default 20)
+
+Response includes:
+- `process`: runtime + memory stats
+- `requests`: counters, top routes, recent 5xx errors
+- `runs`: aggregated run analytics
+- `caches`: cache sizes and ages
+- `liveStreams.activeClients`: number of connected SSE clients
+
+## GET /api/run/history
+Execution analytics for tile/action runs.
+
+Query params:
+- `limit`: 1..200 (default 40)
+
+Response includes:
+- `totals`: total/success/failed/successRate
+- `topTiles[]`, `topActions[]`
+- `recent[]`: latest run events
+
+## GET /api/tiles/recommendations
+Usage-based tile recommendations.
+
+Query params:
+- `profile`: optional profile filter
+- `page`: optional page filter
+- `limit`: 1..50 (default 10)
+
+Response includes:
+- `items[]` with `score`, `count`, `hourHits`, `lastRunAt`, `reason`
+
+## GET /api/stream/live
+Server-Sent Events stream for live dashboards.
+
+Query params:
+- `channels`: comma-separated values from `status,metrics,audio,wow,curseforge,runs` or `all`
+- `intervalMs`: 500..15000 (default 1500)
+
+Events:
+- `hello`
+- `snapshot`
+- `error`
+- `end`
 
 ## POST /api/icon
 Extract icon from app file.

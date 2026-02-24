@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WoW Navigator</title>
+  <style>
+    :root {
+      --bg0: #0a0f19;
+      --bg1: #101e35;
+      --bg2: #183456;
+      --card: rgba(14, 24, 38, 0.9);
+      --line: rgba(188, 214, 255, 0.24);
+      --text: #e9f4ff;
+      --muted: rgba(201, 220, 243, 0.84);
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --accent: #60a5fa;
+      --accent2: #22d3ee;
+      --radius: 16px;
+      --shadow: 0 16px 44px rgba(0, 0, 0, 0.42);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(840px 540px at 6% -10%, rgba(96, 165, 250, 0.26), transparent 62%),
+        radial-gradient(860px 560px at 102% -12%, rgba(34, 211, 238, 0.18), transparent 58%),
+        linear-gradient(160deg, var(--bg0), var(--bg1) 52%, var(--bg2));
+    }
+
+    .app { min-height: 100vh; padding: 12px; }
+    .panel {
+      min-height: calc(100vh - 24px);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .head {
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(142, 198, 255, 0.2), rgba(18, 34, 54, 0.3));
+      display: grid;
+      gap: 10px;
+    }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .title strong { display: block; font-size: 20px; letter-spacing: 0.2px; }
+    .title span { font-size: 12px; color: var(--muted); }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.24);
+      min-height: 34px;
+      padding: 6px 10px;
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warn);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.24);
+    }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+    .dot.err { background: var(--err); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+
+    .body {
+      padding: 12px;
+      overflow: auto;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.04);
+      overflow: hidden;
+    }
+    .cardHead {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .cardBody { padding: 12px; display: grid; gap: 10px; }
+
+    input, select, textarea, button {
+      min-height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.24);
+      color: var(--text);
+      padding: 9px 10px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    textarea { min-height: 108px; resize: vertical; }
+    button { cursor: pointer; font-weight: 650; background: rgba(196, 228, 255, 0.11); }
+    button.primary {
+      border-color: rgba(96, 165, 250, 0.7);
+      background: linear-gradient(180deg, rgba(96, 165, 250, 0.34), rgba(96, 165, 250, 0.11));
+    }
+    button.warn { border-color: rgba(245, 158, 11, 0.52); }
+    button:disabled { opacity: 0.56; cursor: not-allowed; }
+
+    .meta {
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.16);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 9px 10px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .statusGrid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .stat {
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 12px;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.2);
+      display: grid;
+      gap: 2px;
+    }
+    .stat strong { font-size: 13px; }
+    .stat span { font-size: 11px; color: var(--muted); }
+
+    .list {
+      display: grid;
+      gap: 8px;
+    }
+    .item {
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.22);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .item strong { font-size: 14px; }
+    .item p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .cmd {
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      padding: 7px 8px;
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+      background: rgba(0, 0, 0, 0.28);
+      word-break: break-all;
+    }
+
+    .embedOnly[hidden] { display: none !important; }
+
+    @media (max-width: 760px) {
+      .app { padding: 6px; }
+      .panel { border-radius: 14px; min-height: calc(100vh - 12px); }
+      .head, .body { padding: 10px; }
+      input, select, textarea, button { min-height: 46px; font-size: 14px; }
+      textarea { min-height: 130px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="panel">
+      <div class="head">
+        <div class="row" style="justify-content: space-between;">
+          <div class="title">
+            <strong>WoW Navigator</strong>
+            <span>Quest-Hilfe mit KI-Empfehlungen und Marker-/Waypoint-Workflows.</span>
+          </div>
+          <div class="row">
+            <div class="chip"><span class="dot" id="dotApi"></span><span id="apiState">verbinde...</span></div>
+            <button class="embedOnly" id="backMain" type="button" hidden>Zurueck zur Hauptseite</button>
+          </div>
+        </div>
+        <div class="row">
+          <button id="openSettingsBtn" type="button">Einstellungen</button>
+          <button id="refreshStatusBtn" type="button">Status aktualisieren</button>
+        </div>
+        <div class="meta">Token und OpenAI-Key werden zentral in den StreamDeck Einstellungen verwaltet.</div>
+      </div>
+
+      <div class="body">
+        <section class="card">
+          <div class="cardHead">
+            <span>WoW Live Status</span>
+            <span id="aiLiveText">KI-Live: aus</span>
+          </div>
+          <div class="cardBody">
+            <div class="statusGrid" id="statusGrid"></div>
+            <div class="meta" id="metaBox">Bereit.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead">
+            <span>Charakter-Kontext</span>
+            <span>Optional, verbessert Empfehlungen</span>
+          </div>
+          <div class="cardBody">
+            <div class="grid">
+              <input id="ctxCharacter" placeholder="Charaktername" />
+              <select id="ctxClass">
+                <option value="">Klasse (optional)</option>
+                <option value="Warrior">Warrior</option>
+                <option value="Paladin">Paladin</option>
+                <option value="Hunter">Hunter</option>
+                <option value="Rogue">Rogue</option>
+                <option value="Priest">Priest</option>
+                <option value="Shaman">Shaman</option>
+                <option value="Mage">Mage</option>
+                <option value="Warlock">Warlock</option>
+                <option value="Druid">Druid</option>
+              </select>
+              <select id="ctxFaction">
+                <option value="">Fraktion (optional)</option>
+                <option value="Alliance">Alliance</option>
+                <option value="Horde">Horde</option>
+              </select>
+              <input id="ctxLevel" type="number" min="1" max="80" step="1" placeholder="Level" />
+              <input id="ctxZone" placeholder="Aktuelle Zone (z.B. Elwynn Forest)" />
+              <select id="ctxExpansion">
+                <option value="">Version (optional)</option>
+                <option value="Classic">Classic</option>
+                <option value="TBC Classic">TBC Classic</option>
+                <option value="Wrath Classic">Wrath Classic</option>
+                <option value="Anniversary">Anniversary</option>
+              </select>
+            </div>
+            <input id="ctxObjective" placeholder="Questziel (optional, z.B. Murloc Eyes)" />
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead">
+            <span>Quest-Frage</span>
+            <span>z.B. "Wo finde ich X?" oder "Route fuer Zone Y"</span>
+          </div>
+          <div class="cardBody">
+            <textarea id="questionInput" placeholder="Beispiel: Ich bin Level 24 in Redridge. Wo finde ich schnell Orcs fuer die Quest?"></textarea>
+            <div class="row">
+              <button id="askBtn" class="primary" type="button">KI-Empfehlung erstellen</button>
+              <button id="copyMacroBtn" class="warn" type="button">Alle TomTom Waypoints kopieren</button>
+              <button id="copySdNavBtn" type="button">Alle /sdnav Befehle kopieren</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead"><span>Antwort</span><span id="providerText">Provider: -</span></div>
+          <div class="cardBody">
+            <div class="meta" id="answerText">Noch keine Anfrage gesendet.</div>
+            <div class="meta" id="safetyText">Sicherheit: -</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead"><span>Empfohlene Schritte</span><span id="stepsCountText">0</span></div>
+          <div class="cardBody"><div class="list" id="stepsList"></div></div>
+        </section>
+
+        <section class="card">
+          <div class="cardHead"><span>Waypoints / Marker</span><span id="waypointsCountText">0</span></div>
+          <div class="cardBody"><div class="list" id="waypointsList"></div></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LS_TOKEN = "sd_token";
+    const LS_CTX = "sd_wow_navigator_ctx_v1";
+    const POLL_MS = 8000;
+
+    const state = {
+      token: "",
+      pollTimer: null,
+      lastGuide: null,
+      status: null
+    };
+
+    const el = {
+      dotApi: document.getElementById("dotApi"),
+      apiState: document.getElementById("apiState"),
+      backMain: document.getElementById("backMain"),
+      openSettingsBtn: document.getElementById("openSettingsBtn"),
+      refreshStatusBtn: document.getElementById("refreshStatusBtn"),
+      statusGrid: document.getElementById("statusGrid"),
+      metaBox: document.getElementById("metaBox"),
+      aiLiveText: document.getElementById("aiLiveText"),
+      ctxCharacter: document.getElementById("ctxCharacter"),
+      ctxClass: document.getElementById("ctxClass"),
+      ctxFaction: document.getElementById("ctxFaction"),
+      ctxLevel: document.getElementById("ctxLevel"),
+      ctxZone: document.getElementById("ctxZone"),
+      ctxExpansion: document.getElementById("ctxExpansion"),
+      ctxObjective: document.getElementById("ctxObjective"),
+      questionInput: document.getElementById("questionInput"),
+      askBtn: document.getElementById("askBtn"),
+      copyMacroBtn: document.getElementById("copyMacroBtn"),
+      copySdNavBtn: document.getElementById("copySdNavBtn"),
+      providerText: document.getElementById("providerText"),
+      answerText: document.getElementById("answerText"),
+      safetyText: document.getElementById("safetyText"),
+      stepsCountText: document.getElementById("stepsCountText"),
+      stepsList: document.getElementById("stepsList"),
+      waypointsCountText: document.getElementById("waypointsCountText"),
+      waypointsList: document.getElementById("waypointsList")
+    };
+
+    function setApiState(text, cls) {
+      el.apiState.textContent = text;
+      el.dotApi.className = `dot ${cls || ""}`.trim();
+    }
+
+    function isEmbeddedMode() {
+      try { return String(new URL(window.location.href).searchParams.get("embed") || "").trim() === "1"; } catch { return false; }
+    }
+    function postOverlayMessage(type) {
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ source: "streamdeck-overlay", type }, window.location.origin);
+        }
+      } catch {}
+    }
+
+    async function api(route, init = {}) {
+      const token = syncTokenFromStorage();
+      if (!token) throw new Error("Token fehlt. Bitte in StreamDeck Einstellungen setzen.");
+      const headers = { "X-Token": token };
+      if (init.body !== undefined) headers["Content-Type"] = "application/json";
+      const response = await fetch(route, {
+        method: init.method || "GET",
+        headers,
+        body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+        cache: "no-store"
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body || body.ok !== true) {
+        throw new Error(body?.error || `HTTP ${response.status}`);
+      }
+      return body;
+    }
+
+    function syncTokenFromStorage() {
+      const token = String(localStorage.getItem(LS_TOKEN) || "").trim();
+      state.token = token;
+      return token;
+    }
+
+    function openMainSettings() {
+      if (isEmbeddedMode()) {
+        postOverlayMessage("open-settings");
+        return;
+      }
+      try {
+        const url = new URL("/StreamDeck.html", window.location.origin);
+        window.location.href = url.toString();
+      } catch {
+        window.location.href = "/StreamDeck.html";
+      }
+    }
+
+    function getContextPayload() {
+      return {
+        characterName: String(el.ctxCharacter.value || "").trim(),
+        className: String(el.ctxClass.value || "").trim(),
+        faction: String(el.ctxFaction.value || "").trim(),
+        level: Number(el.ctxLevel.value || 0) || 0,
+        zone: String(el.ctxZone.value || "").trim(),
+        expansion: String(el.ctxExpansion.value || "").trim(),
+        objective: String(el.ctxObjective.value || "").trim()
+      };
+    }
+
+    function saveContext() {
+      localStorage.setItem(LS_CTX, JSON.stringify(getContextPayload()));
+    }
+
+    function restoreContext() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(LS_CTX) || "{}");
+        el.ctxCharacter.value = String(parsed.characterName || "");
+        el.ctxClass.value = String(parsed.className || "");
+        el.ctxFaction.value = String(parsed.faction || "");
+        el.ctxLevel.value = parsed.level ? String(parsed.level) : "";
+        el.ctxZone.value = String(parsed.zone || "");
+        el.ctxExpansion.value = String(parsed.expansion || "");
+        el.ctxObjective.value = String(parsed.objective || "");
+      } catch {}
+    }
+
+    function renderStatus(status) {
+      state.status = status;
+      el.statusGrid.textContent = "";
+      const rows = [
+        { title: "WoW Prozess", value: status.wowRunning ? "Laeuft" : "Nicht aktiv" },
+        { title: "TomTom", value: status.isTomTomInstalled ? "Installiert" : "Nicht installiert" },
+        { title: "Questie", value: status.isQuestieInstalled ? "Installiert" : "Nicht installiert" },
+        { title: "StreamDeckNavigator AddOn", value: status.isStreamDeckNavigatorInstalled ? "Installiert" : "Nicht installiert" },
+        { title: "AddOns Gesamt", value: String(status.addonsCount || 0) },
+        { title: "WoW Prozessname", value: status.processName || "-" }
+      ];
+      for (const row of rows) {
+        const item = document.createElement("div");
+        item.className = "stat";
+        const t = document.createElement("strong");
+        t.textContent = row.title;
+        const v = document.createElement("span");
+        v.textContent = row.value;
+        item.append(t, v);
+        el.statusGrid.appendChild(item);
+      }
+      el.aiLiveText.textContent = `KI-Live: ${status.aiLive ? "aktiv (OpenAI)" : "lokaler Fallback"}`;
+    }
+
+    function renderGuide(guide) {
+      state.lastGuide = guide;
+      el.providerText.textContent = `Provider: ${guide.provider || "-"}`;
+      el.answerText.textContent = guide.answer || "Keine Antwort erhalten.";
+      el.safetyText.textContent = `Sicherheit: ${guide.safety || "-"}`;
+
+      const steps = Array.isArray(guide.nextSteps) ? guide.nextSteps : [];
+      el.stepsCountText.textContent = String(steps.length);
+      el.stepsList.textContent = "";
+      if (!steps.length) {
+        const empty = document.createElement("div");
+        empty.className = "meta";
+        empty.textContent = "Keine Schritte vorhanden.";
+        el.stepsList.appendChild(empty);
+      } else {
+        for (const step of steps) {
+          const card = document.createElement("div");
+          card.className = "item";
+          const title = document.createElement("strong");
+          title.textContent = String(step.title || "Schritt");
+          const text = document.createElement("p");
+          text.textContent = String(step.details || "");
+          card.append(title, text);
+          el.stepsList.appendChild(card);
+        }
+      }
+
+      const waypoints = Array.isArray(guide.waypoints) ? guide.waypoints : [];
+      el.waypointsCountText.textContent = String(waypoints.length);
+      el.waypointsList.textContent = "";
+      if (!waypoints.length) {
+        const empty = document.createElement("div");
+        empty.className = "meta";
+        empty.textContent = "Keine Waypoints vorhanden.";
+        el.waypointsList.appendChild(empty);
+        return;
+      }
+      for (const wp of waypoints) {
+        const card = document.createElement("div");
+        card.className = "item";
+        const title = document.createElement("strong");
+        const zone = String(wp.zone || "Aktuelle Zone");
+        title.textContent = `${zone} (${wp.x}, ${wp.y})`;
+        const note = document.createElement("p");
+        note.textContent = String(wp.note || "Waypoint");
+        const tt = document.createElement("div");
+        tt.className = "cmd";
+        tt.textContent = String(wp.tomtomCommand || "");
+        const sd = document.createElement("div");
+        sd.className = "cmd";
+        sd.textContent = String(wp.streamDeckNavigatorCommand || "");
+        const buttons = document.createElement("div");
+        buttons.className = "row";
+        const copyTomTomBtn = document.createElement("button");
+        copyTomTomBtn.type = "button";
+        copyTomTomBtn.textContent = "TomTom kopieren";
+        copyTomTomBtn.addEventListener("click", () => copyText(wp.tomtomCommand));
+        const copySdBtn = document.createElement("button");
+        copySdBtn.type = "button";
+        copySdBtn.textContent = "/sdnav kopieren";
+        copySdBtn.addEventListener("click", () => copyText(wp.streamDeckNavigatorCommand));
+        buttons.append(copyTomTomBtn, copySdBtn);
+        card.append(title, note, tt, sd, buttons);
+        el.waypointsList.appendChild(card);
+      }
+    }
+
+    async function copyText(text) {
+      const value = String(text || "").trim();
+      if (!value) return;
+      try {
+        await navigator.clipboard.writeText(value);
+        el.metaBox.textContent = "In Zwischenablage kopiert.";
+      } catch {
+        el.metaBox.textContent = "Kopieren fehlgeschlagen (Browser-Rechte).";
+      }
+    }
+
+    async function loadStatus(options = {}) {
+      const silent = options.silent === true;
+      const status = await api("/api/wow/navigator/status");
+      renderStatus(status);
+      setApiState("live", "ok");
+      if (!silent) el.metaBox.textContent = "Navigator-Status aktualisiert.";
+    }
+
+    async function askAssistant() {
+      const question = String(el.questionInput.value || "").trim();
+      if (!question) throw new Error("Bitte zuerst eine Frage eingeben.");
+      const payload = {
+        question,
+        context: getContextPayload()
+      };
+      saveContext();
+      const result = await api("/api/wow/assistant", { method: "POST", body: payload });
+      renderGuide(result);
+      el.metaBox.textContent = result.provider === "openai"
+        ? "KI-Live-Antwort erstellt."
+        : "Lokale Fallback-Empfehlung erstellt.";
+    }
+
+    function buildAllCommands(kind) {
+      const waypoints = Array.isArray(state.lastGuide?.waypoints) ? state.lastGuide.waypoints : [];
+      const key = kind === "tomtom" ? "tomtomCommand" : "streamDeckNavigatorCommand";
+      return waypoints.map((wp) => String(wp?.[key] || "").trim()).filter(Boolean).join("\n");
+    }
+
+    function bind() {
+      el.openSettingsBtn.addEventListener("click", openMainSettings);
+      el.refreshStatusBtn.addEventListener("click", () => {
+        loadStatus().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `Status fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.askBtn.addEventListener("click", () => {
+        askAssistant().catch((error) => {
+          setApiState("fehler", "err");
+          el.metaBox.textContent = `Assistent fehlgeschlagen: ${error.message || String(error)}`;
+        });
+      });
+      el.copyMacroBtn.addEventListener("click", () => copyText(buildAllCommands("tomtom")));
+      el.copySdNavBtn.addEventListener("click", () => copyText(buildAllCommands("sdnav")));
+      [el.ctxCharacter, el.ctxClass, el.ctxFaction, el.ctxLevel, el.ctxZone, el.ctxExpansion, el.ctxObjective].forEach((node) => {
+        node.addEventListener("change", saveContext);
+      });
+    }
+
+    function startPolling() {
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      state.pollTimer = setInterval(() => {
+        syncTokenFromStorage();
+        if (!state.token) return;
+        loadStatus({ silent: true }).catch(() => {});
+      }, POLL_MS);
+    }
+
+    function init() {
+      syncTokenFromStorage();
+      restoreContext();
+      bind();
+      startPolling();
+      if (isEmbeddedMode()) el.backMain.hidden = false;
+      el.backMain.addEventListener("click", () => postOverlayMessage("back-main"));
+
+      if (!state.token) {
+        setApiState("token fehlt", "err");
+        el.metaBox.textContent = "Bitte Token in den StreamDeck Einstellungen setzen.";
+        return;
+      }
+      loadStatus().catch((error) => {
+        setApiState("fehler", "err");
+        el.metaBox.textContent = `Init fehlgeschlagen: ${error.message || String(error)}`;
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

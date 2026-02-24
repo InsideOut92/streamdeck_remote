@@ -17,16 +17,23 @@ Das Projekt kombiniert Profile, Unterseiten und serverseitig persistente Tiles, 
 - Programmsuche + automatische Aufloesung von Programmnamen.
 - Launcher-Autodetect (abschaltbar per Env).
 - Dateibasierte Logs inkl. Rotation + API zum Abrufen der letzten Zeilen.
+- Runtime-Diagnose (Request/Route-Latenzen, Cache-Status, Fehler-Historie) ueber API.
+- Run-Historie + intelligente Tile-Empfehlungen basierend auf Nutzungsmustern.
+- Live-Server-Stream (SSE) fuer Status/Metriken/Audio/WoW/CurseForge in Echtzeit.
 - Vollstaendiger Config-Export/Import (Backup & Migration) direkt in der UI.
 - Gaming-Profil mit eingebetteten Overlay-Unterseiten (kein neuer Browser-Tab):
   - `Leistungs-Overlay` (CPU/RAM/Netz live)
   - `CurseForge AddOn Manager` (AddOns aktivieren/deaktivieren, AddOns-Ordner oeffnen, CurseForge Start/Stop/Restart)
+  - `WoW Navigator` (Quest-Hilfe, Waypoints, TomTom-/sdnav-Kommandos)
 - Streaming-Profil mit eingebettetem `Soundboard` (Touch Mixer):
   - Voiceover-Soundboard mit 8 Touch-Pads (eigene Audio-Clips, Loop, Solo, Pad-Volume)
   - Lokale Clip-Bibliothek direkt in der App (Import, Preview, Zuordnung, Loeschen)
   - Pro-App Volume (+/-/Slider), Mute, Play/Pause
   - Browser-/Youtube-Sessions werden auch ohne stabile PID via `sessionKey` steuerbar
   - Spotify-Bereich (Open + Play/Pause + Mute + Volume)
+- Zentrale KI-Schluesselverwaltung in `Einstellungen`:
+  - OpenAI API-Key wird nur dort gepflegt und nach dem Speichern nicht mehr angezeigt
+  - WoW Navigator nutzt Token/Key automatisch und zeigt keine Token-Eingabe mehr
 - Sicherheitsbasis: Token-Auth (`X-Token`), Request-ID, Rate-Limit, Security-Header.
 
 ## Architektur in einem Satz
@@ -34,6 +41,7 @@ Das Projekt kombiniert Profile, Unterseiten und serverseitig persistente Tiles, 
 - `public/StreamDeck.html`: komplette UI (HTML/CSS/JS).
 - `public/Performance.html`: modernes Live-Overlay fuer Systemmetriken.
 - `public/CurseForge.html`: AddOn-Verwaltung fuer WoW AddOn-Ordner + CurseForge-App-Steuerung.
+- `public/WoWNavigator.html`: WoW Quest-Assistent + Waypoint-Generator (cheat-frei).
 - `public/Soundboard.html`: Voiceover-Pads + Audio-Mixer + Spotify Hub.
 - `config.json`: Laufzeitkonfiguration (lokal erzeugt, nicht versioniert).
 
@@ -115,6 +123,7 @@ npm run build:win
 - `wow.processName`, `wow.folders.*`
   - Hinweis: Default ist auf WoW Anniversary ausgelegt (`...\\World of Warcraft\\_anniversary_\\...`).
 - `logging.enabled`, `logging.dir`, `logging.maxFiles`, `logging.level` (`ERROR|WARN|INFO|DEBUG`)
+- `ai.model`, `ai.openAiApiKey`
 - `launchers.*` (serverseitige App-Pfade)
 
 ### Umgebungvariablen
@@ -126,6 +135,11 @@ npm run build:win
   - deaktiviert Launcher-Autodetect
 - `STREAMDECK_LOG_LEVEL=ERROR|WARN|INFO|DEBUG`:
   - optionales Laufzeit-Override fuer das aktive Log-Level (ueberschreibt `logging.level`)
+- `STREAMDECK_AI_API_KEY` oder `OPENAI_API_KEY`:
+  - aktiviert Live-KI-Antworten im WoW Navigator (ohne Key: lokaler Fallback)
+  - wenn gesetzt, ist der API-Key in der UI schreibgeschuetzt (Quelle: `env`)
+- `STREAMDECK_AI_MODEL`:
+  - optionales Modell-Override (Default: `gpt-4o-mini`)
 
 ## API (Kurzuebersicht)
 - `GET /api/health`
@@ -135,6 +149,8 @@ npm run build:win
 - `POST /api/audio/session/mute`
 - `POST /api/audio/session/playpause`
 - `POST /api/audio/spotify/open`
+- `GET /api/wow/navigator/status`
+- `POST /api/wow/assistant`
 - `GET /api/curseforge/status`
 - `POST /api/curseforge/start`
 - `POST /api/curseforge/stop`
@@ -145,11 +161,17 @@ npm run build:win
 - `POST /api/wow/addons/open-folder`
 - `GET /api/bootstrap`
 - `GET /api/settings`
+- `GET /api/settings/ai`
 - `POST /api/settings/*` (launcher, wow, logging, autodetect, browse, import)
+- `POST /api/settings/ai`
 - `GET /api/settings/export`
 - `GET /api/programs`
 - `POST /api/programs/resolve`
 - `GET /api/logs/recent`
+- `GET /api/diagnostics`
+- `GET /api/run/history`
+- `GET /api/tiles/recommendations`
+- `GET /api/stream/live`
 - `GET /api/tiles/:id`
 - `POST /api/tiles/upsert`
 - `POST /api/tiles/delete`
@@ -168,6 +190,11 @@ Alle API-Calls (ausser statische Dateien) erwarten Token via Header:
   - Jede API-Response enthaelt `X-Request-Id`
 - Live-Log-Auszug:
   - `GET /api/logs/recent?lines=200`
+
+## WoW Navigator AddOn (optional)
+- AddOn Quellen: `wow-addon/StreamDeckNavigator`
+- Install-Anleitung: `wow-addon/README.md`
+- Ingame-Befehl: `/sdnav <x> <y> [label]`
 
 ## Troubleshooting
 - `401 unauthorized`:

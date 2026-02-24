@@ -166,6 +166,9 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     assert.equal(health.body?.features?.settingsImportExport, true);
     assert.equal(health.body?.features?.systemMetrics, true);
     assert.equal(health.body?.features?.wowAddonsManager, true);
+    assert.equal(health.body?.features?.wowNavigator, true);
+    assert.equal(health.body?.features?.questAssistant, true);
+    assert.equal(health.body?.features?.questAssistantLive, false);
     assert.equal(health.body?.features?.curseforgeControl, true);
     assert.equal(health.body?.features?.audioMixer, true);
 
@@ -199,6 +202,27 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     assert.ok(Array.isArray(wowAddons.body?.items));
     assert.ok(wowAddons.body.items.some((item) => item.folder === "MyAddon"));
 
+    const wowNavigatorStatus = await requestJson(baseUrl, token, "/api/wow/navigator/status");
+    assert.equal(wowNavigatorStatus.status, 200);
+    assert.equal(wowNavigatorStatus.body?.ok, true);
+    assert.equal(typeof wowNavigatorStatus.body?.wowRunning, "boolean");
+    assert.equal(typeof wowNavigatorStatus.body?.isTomTomInstalled, "boolean");
+    assert.equal(typeof wowNavigatorStatus.body?.isQuestieInstalled, "boolean");
+
+    const wowAssistant = await requestJson(baseUrl, token, "/api/wow/assistant", {
+      method: "POST",
+      body: {
+        question: "Ich bin level 20, wo soll ich als naechstes questen?",
+        context: { zone: "Westfall", level: 20, faction: "Alliance" }
+      }
+    });
+    assert.equal(wowAssistant.status, 200);
+    assert.equal(wowAssistant.body?.ok, true);
+    assert.equal(typeof wowAssistant.body?.provider, "string");
+    assert.equal(typeof wowAssistant.body?.answer, "string");
+    assert.ok(Array.isArray(wowAssistant.body?.nextSteps));
+    assert.ok(Array.isArray(wowAssistant.body?.waypoints));
+
     const disableAddon = await requestJson(baseUrl, token, "/api/wow/addons/toggle", {
       method: "POST",
       body: { key: "MyAddon", enabled: false }
@@ -221,6 +245,30 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     assert.equal(settings.status, 200);
     assert.equal(settings.body?.ok, true);
     assert.equal(typeof settings.body?.wow?.processName, "string");
+    assert.equal(typeof settings.body?.ai?.model, "string");
+    assert.equal(settings.body?.ai?.hasApiKey, false);
+    assert.equal(Object.prototype.hasOwnProperty.call(settings.body?.ai || {}, "openAiApiKey"), false);
+
+    const aiSettings = await requestJson(baseUrl, token, "/api/settings/ai");
+    assert.equal(aiSettings.status, 200);
+    assert.equal(aiSettings.body?.ok, true);
+    assert.equal(aiSettings.body?.ai?.provider, "openai");
+    assert.equal(aiSettings.body?.ai?.hasApiKey, false);
+    assert.equal(Object.prototype.hasOwnProperty.call(aiSettings.body?.ai || {}, "openAiApiKey"), false);
+
+    const aiModelUpdate = await requestJson(baseUrl, token, "/api/settings/ai", {
+      method: "POST",
+      body: { model: "gpt-4o-mini" }
+    });
+    assert.equal(aiModelUpdate.status, 200);
+    assert.equal(aiModelUpdate.body?.ok, true);
+    assert.equal(aiModelUpdate.body?.ai?.model, "gpt-4o-mini");
+
+    const aiShortKey = await requestJson(baseUrl, token, "/api/settings/ai", {
+      method: "POST",
+      body: { model: "gpt-4o-mini", openAiApiKey: "short", verify: false }
+    });
+    assert.equal(aiShortKey.status, 400);
 
     const exported = await requestJson(baseUrl, token, "/api/settings/export");
     assert.equal(exported.status, 200);
@@ -312,6 +360,41 @@ test("API smoke: auth, tile lifecycle, dry-run execution", { timeout: 40000 }, a
     });
     assert.equal(runTile.status, 200);
     assert.equal(runTile.body?.ok, true);
+
+    const runHistory = await requestJson(baseUrl, token, "/api/run/history?limit=20");
+    assert.equal(runHistory.status, 200);
+    assert.equal(runHistory.body?.ok, true);
+    assert.equal(typeof runHistory.body?.totals?.total, "number");
+    assert.ok(runHistory.body.totals.total >= 1);
+    assert.ok(Array.isArray(runHistory.body?.recent));
+    assert.ok(runHistory.body.recent.some((entry) => entry.tileId === tileId && entry.ok === true));
+
+    const recommendations = await requestJson(baseUrl, token, "/api/tiles/recommendations?profile=work&page=main&limit=6");
+    assert.equal(recommendations.status, 200);
+    assert.equal(recommendations.body?.ok, true);
+    assert.ok(Array.isArray(recommendations.body?.items));
+
+    const diagnostics = await requestJson(baseUrl, token, "/api/diagnostics?routeLimit=6&recentRuns=10");
+    assert.equal(diagnostics.status, 200);
+    assert.equal(diagnostics.body?.ok, true);
+    assert.equal(typeof diagnostics.body?.diagnostics?.requests?.total, "number");
+    assert.ok(Array.isArray(diagnostics.body?.diagnostics?.requests?.topRoutes));
+
+    const liveStream = await fetch(`${baseUrl}/api/stream/live?channels=status,runs&intervalMs=700`, {
+      headers: { "X-Token": token }
+    });
+    assert.equal(liveStream.status, 200);
+    assert.match(String(liveStream.headers.get("content-type") || ""), /text\/event-stream/i);
+    assert.ok(liveStream.body, "expected readable stream body");
+    const reader = liveStream.body.getReader();
+    const firstChunk = await Promise.race([
+      reader.read(),
+      sleep(5000).then(() => ({ done: true, value: null }))
+    ]);
+    assert.equal(firstChunk.done, false, "expected SSE payload from /api/stream/live");
+    const firstText = Buffer.from(firstChunk.value || []).toString("utf8");
+    assert.match(firstText, /event:\s*hello/i);
+    await reader.cancel();
 
     const deleteTile = await requestJson(baseUrl, token, "/api/tiles/delete", {
       method: "POST",

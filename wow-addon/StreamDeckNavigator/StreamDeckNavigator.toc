@@ -1,0 +1,7 @@
+## Interface: 11507
+## Title: StreamDeckNavigator
+## Notes: Non-cheat waypoint helper for StreamDeck Remote
+## Author: InsideOut92
+## Version: 0.1.0
+
+StreamDeckNavigator.lua
